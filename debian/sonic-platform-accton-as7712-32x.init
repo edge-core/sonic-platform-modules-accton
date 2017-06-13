@@ -1,0 +1,42 @@
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:          setup-board
+# Required-Start:
+# Required-Stop:
+# Should-Start:
+# Should-Stop:
+# Default-Start:     S
+# Default-Stop:      0 6
+# Short-Description: Setup AS7712-32x board.
+### END INIT INFO
+
+case "$1" in
+start)
+    echo -n "Setting up board... "
+
+    /usr/local/bin/accton_as7712_util.py install
+
+    echo "done."
+    ;;
+
+stop)
+    echo -n "cleaning... "
+
+    /usr/local/bin/accton_as7712_util.py clean
+
+    echo "done."
+
+    ;;
+
+force-reload|restart)
+    echo "Not supported"
+    ;;
+
+*)
+    echo "Usage: /etc/init.d/platform-modules-as7712-32x.init {start|stop}"
+    exit 1
+    ;;
+esac
+
+exit 0
