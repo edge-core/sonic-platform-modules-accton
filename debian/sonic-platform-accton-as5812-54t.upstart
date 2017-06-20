@@ -1,0 +1,5 @@
+description "SONiC platform service"
+
+respawn
+
+exec /usr/local/bin/accton_as5812_54t_util.py install
