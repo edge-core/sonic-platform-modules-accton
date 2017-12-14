@@ -167,6 +167,7 @@ struct sfp_port_data {
 	int 				   port;		/* CPLD port index */
 	oom_driver_port_type_t port_type;
 	u64					   present;   /* present status, bit0:port0, bit1:port1 and so on */
+	u64					   port_reset;   /* reset status, bit0:port0, bit1:port1 and so on */
 
 	struct sfp_msa_data	  *msa;
 	struct sfp_ddm_data   *ddm;
@@ -197,7 +198,8 @@ enum sfp_sysfs_attributes {
 	RX_LOS2,
 	RX_LOS3,
 	RX_LOS4,
-	RX_LOS_ALL
+	RX_LOS_ALL,
+	PORT_RESET
 };
 
 static ssize_t show_port_number(struct device *dev, struct device_attribute *da,
@@ -229,11 +231,11 @@ static struct sfp_port_data *sfp_update_present(struct i2c_client *client)
             goto exit;
         }
         
-		DEBUG_PRINT("Present status = 0x%lx", data->present);		
+        DEBUG_PRINT("Present status = 0x%llx", data->present);
         data->present |= (u64)status << (i*8);
     }
 
-	DEBUG_PRINT("Present status = 0x%lx", data->present);
+	DEBUG_PRINT("Present status = 0x%llx", data->present);
 exit:
 	mutex_unlock(&data->update_lock);
 	return data;
@@ -352,6 +354,96 @@ static ssize_t show_port_type(struct device *dev, struct device_attribute *da,
 	return sprintf(buf, "%d\n", data->port_type);
 }
 
+
+static struct sfp_port_data *sfp_update_port_reset(struct i2c_client *client)
+{
+    struct sfp_port_data *data = i2c_get_clientdata(client);
+    int i = 0;
+    int status = -1;
+    u8 regs[] = {0x4, 0x5, 0x6, 0x7};
+
+    mutex_lock(&data->update_lock);
+
+    /* Read reset status of port 1~32 */
+    data->port_reset = 0;
+
+    for (i = 0; i < ARRAY_SIZE(regs); i++) {
+        status = accton_i2c_cpld_read(0x60, regs[i]);
+
+        if (status < 0) {
+            DEBUG_PRINT("cpld(0x60) reg(0x%x) err %d", regs[i], status);
+            goto exit;
+        }
+        
+        DEBUG_PRINT("reset status = 0x%x", status);
+        data->port_reset |= (u64)status << (i*8);
+    }
+
+    DEBUG_PRINT("reset status = 0x%llx", data->port_reset);
+exit:
+    mutex_unlock(&data->update_lock);
+    return data;
+}
+
+static ssize_t show_port_reset(struct device *dev, struct device_attribute *da,
+                         char *buf)
+{
+    struct i2c_client *client = to_i2c_client(dev);
+    struct sfp_port_data *data = i2c_get_clientdata(client);
+    int is_reset = 0;
+
+    if (!sfp_is_port_present(client, data->port)) {
+        return sprintf(buf, "%d\n", OOM_DRIVER_PORT_TYPE_NOT_PRESENT);
+    }
+
+    sfp_update_port_reset(client);
+    is_reset = (data->port_reset & BIT_INDEX(data->port))? 0 : 1;
+	
+    return sprintf(buf, "%d\n", is_reset);
+}
+
+static ssize_t sfp_set_port_reset(struct device *dev, struct device_attribute *da,
+			const char *buf, size_t count)
+{
+    struct i2c_client *client = to_i2c_client(dev);
+    struct sfp_port_data *data = i2c_get_clientdata(client);
+    u8 cpld_reg = 0, cpld_val = 0, cpld_bit = 0;
+    long is_reset;
+    int error;
+
+    error = kstrtol(buf, 10, &is_reset);
+    if (error) {
+        return error;
+    }
+
+    mutex_lock(&data->update_lock);
+
+    cpld_reg = 0x4 + data->port / 8;
+    cpld_bit = 1 << (data->port % 8);
+
+    cpld_val = accton_i2c_cpld_read(0x60, cpld_reg);
+    DEBUG_PRINT("current cpld reg = 0x%x value = 0x%x", cpld_reg, cpld_val);
+
+    /* Update reset status. CPLD defined 0 is reset state, 1 is normal state.
+     * is_reset: 0 is not reset. 1 is reset.
+     */
+    if (is_reset == 0) {
+        data->port_reset |= BIT_INDEX(data->port);
+        cpld_val |= cpld_bit;
+    }
+    else {
+        data->port_reset &= ~BIT_INDEX(data->port);
+        cpld_val &= ~cpld_bit;
+    }
+
+    accton_i2c_cpld_write(0x60, cpld_reg, cpld_val);
+    DEBUG_PRINT("write cpld reg = 0x%x value = 0x%x cpld_bit = 0x%x", cpld_reg, cpld_val,cpld_bit);
+
+    mutex_unlock(&data->update_lock);
+
+    return count;
+}
+
 static struct sfp_port_data *qsfp_update_tx_rx_status(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
@@ -467,8 +559,7 @@ static ssize_t qsfp_set_tx_disable(struct device *dev, struct device_attribute *
 
 	mutex_lock(&data->update_lock);
 
-	DEBUG_PRINT ("%s-%d: disable:%u %d==%d %u\r\n",  __FUNCTION__, __LINE__, 
-	disable, attr->index,  TX_DISABLE_ALL, data->qsfp->status[1]);
+	DEBUG_PRINT ("disable:%ld %d==%d %u\r\n", disable, attr->index,  TX_DISABLE_ALL, data->qsfp->status[1]);
 
     if (attr->index == TX_DISABLE_ALL)
     {
@@ -544,6 +635,7 @@ static SENSOR_DEVICE_ATTR(sfp_port_number, S_IRUGO, show_port_number, NULL, PORT
 static SENSOR_DEVICE_ATTR(sfp_is_present,  S_IRUGO, show_present, NULL, PRESENT);
 static SENSOR_DEVICE_ATTR(sfp_port_type, S_IRUGO, show_port_type, NULL, PORT_TYPE);
 static SENSOR_DEVICE_ATTR(sfp_is_present_all,  S_IRUGO, show_present, NULL, PRESENT);
+static SENSOR_DEVICE_ATTR(sfp_port_reset, S_IWUSR | S_IRUGO, show_port_reset, sfp_set_port_reset, PORT_RESET);
 
 /* QSFP attributes for sysfs */
 static SENSOR_DEVICE_ATTR(sfp_rx_los1, S_IRUGO, qsfp_show_tx_rx_status, NULL, RX_LOS1);
@@ -563,6 +655,7 @@ static struct attribute *qsfp_attributes[] = {
 	&sensor_dev_attr_sfp_port_number.dev_attr.attr,
 	&sensor_dev_attr_sfp_port_type.dev_attr.attr,
 	&sensor_dev_attr_sfp_is_present.dev_attr.attr,
+	&sensor_dev_attr_sfp_port_reset.dev_attr.attr,
 	&sensor_dev_attr_sfp_rx_los1.dev_attr.attr,
 	&sensor_dev_attr_sfp_rx_los2.dev_attr.attr,
 	&sensor_dev_attr_sfp_rx_los3.dev_attr.attr,
@@ -692,7 +785,7 @@ static ssize_t sfp_bin_write(struct file *filp, struct kobject *kobj,
 				char *buf, loff_t off, size_t count)
 {
 	struct sfp_port_data *data;
-	DEBUG_PRINT("%s(%d) offset = (%d), count = (%d)", off, count);
+	DEBUG_PRINT("offset = (%d), count = (%d)", off, count);
 	data = dev_get_drvdata(container_of(kobj, struct device, kobj));
 	return sfp_port_write(data, buf, off, count);
 }

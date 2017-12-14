@@ -166,6 +166,7 @@ kos = [
 
 def driver_install():
     global FORCE
+    status, output = log_os_system("depmod", 1)
     for i in range(0,len(kos)):
         status, output = log_os_system(kos[i], 1)
         if status:
