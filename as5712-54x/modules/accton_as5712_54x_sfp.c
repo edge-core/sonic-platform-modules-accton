@@ -34,7 +34,15 @@
 #include <linux/sysfs.h>
 #include <linux/slab.h>
 
-#define NUM_OF_SFP_PORT 54
+#define NUM_OF_SFF_PORT 54
+#define SFP_PORT_MAX    48
+#define I2C_ADDR_CPLD1	0x60
+#define I2C_ADDR_CPLD2	0x61
+#define I2C_ADDR_CPLD3	0x62
+#define CPLD3_OFFSET_QSFP_MOD_RST 0x15
+#define CPLD3_OFFSET_QSFP_LPMODE  0x16
+
+
 #define BIT_INDEX(i) (1ULL << (i))
 
 #if 0
@@ -87,6 +95,14 @@ static ssize_t show_status(struct device *dev, struct device_attribute *da, char
 static ssize_t show_eeprom(struct device *dev, struct device_attribute *da, char *buf);
 static ssize_t set_tx_disable(struct device *dev, struct device_attribute *da,
 			const char *buf, size_t count);
+static ssize_t get_lp_mode(struct device *dev, struct device_attribute *da,
+			char *buf);
+static ssize_t set_lp_mode(struct device *dev, struct device_attribute *da,
+			const char *buf, size_t count);		
+static ssize_t get_mode_reset(struct device *dev, struct device_attribute *da,
+			char *buf);
+static ssize_t set_mode_reset(struct device *dev, struct device_attribute *da,
+			const char *buf, size_t count);								
 extern int as5712_54x_i2c_cpld_read(unsigned short cpld_addr, u8 reg);
 extern int as5712_54x_i2c_cpld_write(unsigned short cpld_addr, u8 reg, u8 value);
 
@@ -99,6 +115,8 @@ enum as5712_54x_sfp_sysfs_attributes {
     SFP_EEPROM,
     SFP_RX_LOS_ALL,
     SFP_IS_PRESENT_ALL,
+    SFP_LP_MODE,
+    SFP_MOD_RST,
 };
 
 /* sysfs attributes for hwmon
@@ -111,6 +129,8 @@ static SENSOR_DEVICE_ATTR(sfp_port_number,  S_IRUGO, show_port_number, NULL, SFP
 static SENSOR_DEVICE_ATTR(sfp_eeprom,      S_IRUGO, show_eeprom, NULL, SFP_EEPROM);
 static SENSOR_DEVICE_ATTR(sfp_rx_los_all, S_IRUGO, show_status,NULL, SFP_RX_LOS_ALL);
 static SENSOR_DEVICE_ATTR(sfp_is_present_all, S_IRUGO, show_status,NULL, SFP_IS_PRESENT_ALL);
+static SENSOR_DEVICE_ATTR(sfp_lp_mode,     S_IWUSR | S_IRUGO, get_lp_mode, set_lp_mode, SFP_LP_MODE);
+static SENSOR_DEVICE_ATTR(sfp_mod_rst,     S_IWUSR | S_IRUGO, get_mode_reset, set_mode_reset, SFP_MOD_RST);
 
 static struct attribute *as5712_54x_sfp_attributes[] = {
     &sensor_dev_attr_sfp_is_present.dev_attr.attr,
@@ -121,6 +141,8 @@ static struct attribute *as5712_54x_sfp_attributes[] = {
     &sensor_dev_attr_sfp_port_number.dev_attr.attr,
     &sensor_dev_attr_sfp_rx_los_all.dev_attr.attr,
     &sensor_dev_attr_sfp_is_present_all.dev_attr.attr,
+    &sensor_dev_attr_sfp_lp_mode.dev_attr.attr,
+    &sensor_dev_attr_sfp_mod_rst.dev_attr.attr,
     NULL
 };
 
@@ -161,17 +183,17 @@ static ssize_t show_status(struct device *dev, struct device_attribute *da,
          */
 
         /* RX_LOS Ports 1-8 */
-        VALIDATED_READ(buf, values[0], as5712_54x_i2c_cpld_read(0x61, 0x0F), 0);
+        VALIDATED_READ(buf, values[0], as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD2, 0x0F), 0);
         /* RX_LOS Ports 9-16 */
-        VALIDATED_READ(buf, values[1], as5712_54x_i2c_cpld_read(0x61, 0x10), 0);
+        VALIDATED_READ(buf, values[1], as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD2, 0x10), 0);
         /* RX_LOS Ports 17-24 */
-        VALIDATED_READ(buf, values[2], as5712_54x_i2c_cpld_read(0x61, 0x11), 0);
+        VALIDATED_READ(buf, values[2], as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD2, 0x11), 0);
         /* RX_LOS Ports 25-32 */
-        VALIDATED_READ(buf, values[3], as5712_54x_i2c_cpld_read(0x62, 0x0F), 0);
+        VALIDATED_READ(buf, values[3], as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD3, 0x0F), 0);
         /* RX_LOS Ports 33-40 */
-        VALIDATED_READ(buf, values[4], as5712_54x_i2c_cpld_read(0x62, 0x10), 0);
+        VALIDATED_READ(buf, values[4], as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD3, 0x10), 0);
         /* RX_LOS Ports 41-48 */
-        VALIDATED_READ(buf, values[5], as5712_54x_i2c_cpld_read(0x62, 0x11), 0);
+        VALIDATED_READ(buf, values[5], as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD3, 0x11), 0);
 
         /** Return values 1 -> 48 in order */
         return sprintf(buf, "%.2x %.2x %.2x %.2x %.2x %.2x\n",
@@ -186,19 +208,19 @@ static ssize_t show_status(struct device *dev, struct device_attribute *da,
          */
 
         /* SFP_PRESENT Ports 1-8 */
-        VALIDATED_READ(buf, values[0], as5712_54x_i2c_cpld_read(0x61, 0x6), 1);
+        VALIDATED_READ(buf, values[0], as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD2, 0x6), 1);
         /* SFP_PRESENT Ports 9-16 */
-        VALIDATED_READ(buf, values[1], as5712_54x_i2c_cpld_read(0x61, 0x7), 1);
+        VALIDATED_READ(buf, values[1], as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD2, 0x7), 1);
         /* SFP_PRESENT Ports 17-24 */
-        VALIDATED_READ(buf, values[2], as5712_54x_i2c_cpld_read(0x61, 0x8), 1);
+        VALIDATED_READ(buf, values[2], as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD2, 0x8), 1);
         /* SFP_PRESENT Ports 25-32 */
-        VALIDATED_READ(buf, values[3], as5712_54x_i2c_cpld_read(0x62, 0x6), 1);
+        VALIDATED_READ(buf, values[3], as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD3, 0x6), 1);
         /* SFP_PRESENT Ports 33-40 */
-        VALIDATED_READ(buf, values[4], as5712_54x_i2c_cpld_read(0x62, 0x7), 1);
+        VALIDATED_READ(buf, values[4], as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD3, 0x7), 1);
         /* SFP_PRESENT Ports 41-48 */
-        VALIDATED_READ(buf, values[5], as5712_54x_i2c_cpld_read(0x62, 0x8), 1);
+        VALIDATED_READ(buf, values[5], as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD3, 0x8), 1);
         /* QSFP_PRESENT Ports 49-54 */
-        VALIDATED_READ(buf, values[6], as5712_54x_i2c_cpld_read(0x62, 0x14), 1);
+        VALIDATED_READ(buf, values[6], as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD3, 0x14), 1);
 
         /* Return values 1 -> 54 in order */
         return sprintf(buf, "%.2x %.2x %.2x %.2x %.2x %.2x %.2x\n",
@@ -220,6 +242,134 @@ static ssize_t show_status(struct device *dev, struct device_attribute *da,
     return sprintf(buf, "%d", val);
 }
 
+static ssize_t get_lp_mode(struct device *dev, struct device_attribute *da,
+			char *buf)
+{
+    struct i2c_client *client = to_i2c_client(dev);
+    struct as5712_54x_sfp_data *data = i2c_get_clientdata(client);
+    u8  cpld_val = 0;
+    int port_bit;
+    int status = -EINVAL;    
+    
+    /* Low power mode is not supported for SFP ports(1-48) */
+    if (data->port < SFP_PORT_MAX) {
+        return -EINVAL;
+    }
+    mutex_lock(&data->update_lock);
+    
+    port_bit = data->port - SFP_PORT_MAX;
+    cpld_val = as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD3, CPLD3_OFFSET_QSFP_LPMODE);
+    cpld_val = cpld_val & 0x3F;
+    cpld_val = cpld_val & BIT_INDEX(port_bit);
+    status = snprintf(buf, PAGE_SIZE - 1, "%d\r\n", cpld_val>>port_bit);
+
+    mutex_unlock(&data->update_lock);
+
+    return status;
+}
+
+static ssize_t set_lp_mode(struct device *dev, struct device_attribute *da,
+			const char *buf, size_t count)
+{
+    struct i2c_client *client = to_i2c_client(dev);
+    struct as5712_54x_sfp_data *data = i2c_get_clientdata(client);
+    u8 cpld_val = 0;
+    long mode;
+    int error, port_bit;
+
+    /* Tx disable is not supported for QSFP ports(49-54) */
+    if (data->port < SFP_PORT_MAX) {
+        return -EINVAL;
+    }
+    port_bit = data->port - SFP_PORT_MAX;
+    error = kstrtol(buf, 10, &mode);
+    if (error) {
+        return error;
+    }
+    mutex_lock(&data->update_lock);
+    
+    cpld_val = as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD3, CPLD3_OFFSET_QSFP_LPMODE);
+    /* Update lp_mode status */
+    if (mode)
+    {       
+        cpld_val |= BIT_INDEX(port_bit);
+    }
+    else
+    {       
+        cpld_val &=~BIT_INDEX(port_bit);
+    }
+    as5712_54x_i2c_cpld_write(I2C_ADDR_CPLD3, CPLD3_OFFSET_QSFP_LPMODE, cpld_val);
+
+    mutex_unlock(&data->update_lock);
+
+    return count;
+}
+
+
+static ssize_t get_mode_reset(struct device *dev, struct device_attribute *da,
+			char *buf)
+{
+    struct i2c_client *client = to_i2c_client(dev);
+    struct as5712_54x_sfp_data *data = i2c_get_clientdata(client);
+    u8  cpld_val = 0;
+    int port_bit;
+    int status = -EINVAL;    
+    
+    /* Low power mode is not supported for SFP ports(1-48) */
+    if (data->port < SFP_PORT_MAX) {
+        return -EINVAL;
+    }
+    mutex_lock(&data->update_lock);
+    
+    port_bit = data->port - SFP_PORT_MAX;
+    cpld_val = as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD3, CPLD3_OFFSET_QSFP_MOD_RST);
+    cpld_val = cpld_val & 0x3F;
+    cpld_val = cpld_val & BIT_INDEX(port_bit);
+    status = snprintf(buf, PAGE_SIZE - 1, "%d\r\n", cpld_val>>port_bit);
+
+    mutex_unlock(&data->update_lock);
+
+    return status;
+}
+
+static ssize_t set_mode_reset(struct device *dev, struct device_attribute *da,
+			const char *buf, size_t count)
+{
+    struct i2c_client *client = to_i2c_client(dev);
+    struct as5712_54x_sfp_data *data = i2c_get_clientdata(client);
+    u8 cpld_val = 0;
+    long reset;
+    int error, port_bit;
+
+    /* Tx disable is not supported for QSFP ports(49-54) */
+    if (data->port < SFP_PORT_MAX) {
+        return -EINVAL;
+    }
+    port_bit = data->port - SFP_PORT_MAX;
+    error = kstrtol(buf, 10, &reset);
+    if (error) {
+        return error;
+    }
+    mutex_lock(&data->update_lock);
+    
+    cpld_val = as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD3, CPLD3_OFFSET_QSFP_MOD_RST);
+    /* Update lp_mode status */
+    if (reset)
+    {       
+        cpld_val |= BIT_INDEX(port_bit);
+    }
+    else
+    {       
+        cpld_val &=~BIT_INDEX(port_bit);
+    }
+    as5712_54x_i2c_cpld_write(I2C_ADDR_CPLD3, CPLD3_OFFSET_QSFP_MOD_RST, cpld_val);
+
+    mutex_unlock(&data->update_lock);
+
+    return count;
+}
+
+
 static ssize_t set_tx_disable(struct device *dev, struct device_attribute *da,
 			const char *buf, size_t count)
 {
@@ -231,7 +381,7 @@ static ssize_t set_tx_disable(struct device *dev, struct device_attribute *da,
     int error;
 
     /* Tx disable is not supported for QSFP ports(49-54) */
-    if (data->port >= 48) {
+    if (data->port >= SFP_PORT_MAX) {
         return -EINVAL;
     }
 
@@ -243,12 +393,12 @@ static ssize_t set_tx_disable(struct device *dev, struct device_attribute *da,
     mutex_lock(&data->update_lock);
 
     if(data->port < 24) {
-        cpld_addr = 0x61;
+        cpld_addr = I2C_ADDR_CPLD2;
         cpld_reg = 0xC + data->port / 8;
         cpld_bit = 1 << (data->port % 8);
     }
     else {
-        cpld_addr = 0x62;
+        cpld_addr = I2C_ADDR_CPLD3;
         cpld_reg = 0xC + (data->port - 24) / 8;
         cpld_bit = 1 << (data->port % 8);
     }
@@ -457,10 +607,10 @@ static struct as5712_54x_sfp_data *as5712_54x_sfp_update_device(struct device *d
         /* Read status of port 1~48(SFP port) */
         for (i = 0; i < 2; i++) {
             for (j = 0; j < 12; j++) {
-                status = as5712_54x_i2c_cpld_read(0x61+i, 0x6+j);
+                status = as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD2+i, 0x6+j);
 
                 if (status < 0) {
-                    dev_dbg(&client->dev, "cpld(0x%x) reg(0x%x) err %d\n", 0x61+i, 0x6+j, status);
+                    dev_dbg(&client->dev, "cpld(0x%x) reg(0x%x) err %d\n", I2C_ADDR_CPLD2+i, 0x6+j, status);
                     goto exit;
                 }
 
@@ -473,13 +623,13 @@ static struct as5712_54x_sfp_data *as5712_54x_sfp_update_device(struct device *d
          * This is a temporary fix until the QSFP+_MOD_RST register
          * can be exposed through the driver.
          */
-        as5712_54x_i2c_cpld_write(0x62, 0x15, 0x3F);
+        as5712_54x_i2c_cpld_write(I2C_ADDR_CPLD3, 0x15, 0x3F);
 
         /* Read present status of port 49-54(QSFP port) */
-        status = as5712_54x_i2c_cpld_read(0x62, 0x14);
+        status = as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD3, 0x14);
 
         if (status < 0) {
-            dev_dbg(&client->dev, "cpld(0x%x) reg(0x%x) err %d\n", 0x61+i, 0x6+j, status);
+            dev_dbg(&client->dev, "cpld(0x%x) reg(0x%x) err %d\n", I2C_ADDR_CPLD2+i, 0x6+j, status);
         }
         else {
             data->status[SFP_IS_PRESENT] |= (u64)status << 48;
@@ -530,10 +680,10 @@ MODULE_LICENSE("GPL");
         /* Read status of port 1~48(SFP port) */
         for (i = 0; i < 2; i++) {
             for (j = 0; j < 12; j++) {
-                status = as5712_54x_i2c_cpld_read(0x61+i, 0x6+j);
+                status = as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD2+i, 0x6+j);
 
                 if (status < 0) {
-                    dev_dbg(&client->dev, "cpld(0x%x) reg(0x%x) err %d\n", 0x61+i, 0x6+j, status);
+                    dev_dbg(&client->dev, "cpld(0x%x) reg(0x%x) err %d\n", I2C_ADDR_CPLD2+i, 0x6+j, status);
                     continue;
                 }
 
@@ -542,10 +692,10 @@ MODULE_LICENSE("GPL");
         }
 
         /* Read present status of port 49-54(QSFP port) */
-        status = as5712_54x_i2c_cpld_read(0x62, 0x14);
+        status = as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD3, 0x14);
 
         if (status < 0) {
-            dev_dbg(&client->dev, "cpld(0x%x) reg(0x%x) err %d\n", 0x61+i, 0x6+j, status);
+            dev_dbg(&client->dev, "cpld(0x%x) reg(0x%x) err %d\n", I2C_ADDR_CPLD2+i, 0x6+j, status);
         }
         else {
             data->status[SFP_IS_PRESENT] |= (u64)status << 48;
@@ -589,10 +739,10 @@ static struct as5712_54x_sfp_data *as5712_54x_sfp_update_status(struct device *d
         /* Read status of port 1~48(SFP port) */
         for (i = 0; i < 2; i++) {
             for (j = 0; j < 12; j++) {
-                status = as5712_54x_i2c_cpld_read(0x61+i, 0x6+j);
+                status = as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD2+i, 0x6+j);
 
                 if (status < 0) {
-                    dev_dbg(&client->dev, "cpld(0x%x) reg(0x%x) err %d\n", 0x61+i, 0x6+j, status);
+                    dev_dbg(&client->dev, "cpld(0x%x) reg(0x%x) err %d\n", I2C_ADDR_CPLD2+i, 0x6+j, status);
                     goto exit;
                 }
 
@@ -605,13 +755,13 @@ static struct as5712_54x_sfp_data *as5712_54x_sfp_update_status(struct device *d
          * This is a temporary fix until the QSFP+_MOD_RST register
          * can be exposed through the driver.
          */
-        as5712_54x_i2c_cpld_write(0x62, 0x15, 0x3F);
+        as5712_54x_i2c_cpld_write(I2C_ADDR_CPLD3, 0x15, 0x3F);
 
         /* Read present status of port 49-54(QSFP port) */
-        status = as5712_54x_i2c_cpld_read(0x62, 0x14);
+        status = as5712_54x_i2c_cpld_read(I2C_ADDR_CPLD3, 0x14);
 
         if (status < 0) {
-            dev_dbg(&client->dev, "cpld(0x%x) reg(0x%x) err %d\n", 0x61+i, 0x6+j, status);
+            dev_dbg(&client->dev, "cpld(0x%x) reg(0x%x) err %d\n", I2C_ADDR_CPLD2+i, 0x6+j, status);
         }
         else {
             data->status[SFP_IS_PRESENT] |= (u64)status << 48;
