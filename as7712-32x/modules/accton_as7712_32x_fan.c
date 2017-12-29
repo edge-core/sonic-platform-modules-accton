@@ -78,7 +78,8 @@ struct as7712_32x_fan_data {
     unsigned long    last_updated;    /* In jiffies */
     u8               reg_val[ARRAY_SIZE(fan_reg)]; /* Register value */
     u8               enable;
-    int             system_temp;    /*In unit of mini-Celsius*/
+    int              system_temp;    /*In unit of mini-Celsius*/
+    int              sensors_found;
 };
 
 enum fan_id {
@@ -307,8 +308,10 @@ static ssize_t set_duty_cycle(struct device *dev, struct device_attribute *da,
     if (error)
         return error;
 
-    if (value < 0 || value > FAN_MAX_DUTY_CYCLE)
+    if (value < 0)
         return -EINVAL;
+
+    value = (value > FAN_MAX_DUTY_CYCLE)? FAN_MAX_DUTY_CYCLE : value;
 
     as7712_32x_fan_write_value(client, 0x33, 0); /* Disable fan speed watch dog */
     as7712_32x_fan_write_value(client, fan_reg[FAN_DUTY_CYCLE_PERCENTAGE], duty_cycle_to_reg_val(value));
