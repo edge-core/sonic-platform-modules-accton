@@ -556,7 +556,7 @@ static ssize_t get_sys_temp(struct device *dev, struct device_attribute *da,
     {
         dev_dbg(dev,"only %d of %d temps are found\n",
                 data->sensors_found, NUM_THERMAL_SENSORS);
-        data->system_temp = 0;
+        data->system_temp = INT_MAX;
     }
     ret = sprintf(buf, "%d\n",data->system_temp);
     return ret;
