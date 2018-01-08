@@ -294,14 +294,14 @@
 #define PB_CML_FAULT_INVALID_COMMAND	(1<<7)
 
 enum pmbus_sensor_classes {
-	PSC_VOLTAGE_IN = 0,
-	PSC_VOLTAGE_OUT,
-	PSC_CURRENT_IN,
-	PSC_CURRENT_OUT,
-	PSC_POWER,
-	PSC_TEMPERATURE,
-	PSC_FAN,
-	PSC_NUM_CLASSES		/* Number of power sensor classes */
+    PSC_VOLTAGE_IN = 0,
+    PSC_VOLTAGE_OUT,
+    PSC_CURRENT_IN,
+    PSC_CURRENT_OUT,
+    PSC_POWER,
+    PSC_TEMPERATURE,
+    PSC_FAN,
+    PSC_NUM_CLASSES		/* Number of power sensor classes */
 };
 
 #define PMBUS_PAGES	32	/* Per PMBus specification */
@@ -331,42 +331,42 @@ enum pmbus_sensor_classes {
 enum pmbus_data_format { linear = 0, direct, vid };
 
 struct pmbus_driver_info {
-	int pages;		/* Total number of pages */
-	enum pmbus_data_format format[PSC_NUM_CLASSES];
-	/*
-	 * Support one set of coefficients for each sensor type
-	 * Used for chips providing data in direct mode.
-	 */
-	int m[PSC_NUM_CLASSES];	/* mantissa for direct data format */
-	int b[PSC_NUM_CLASSES];	/* offset */
-	int R[PSC_NUM_CLASSES];	/* exponent */
+    int pages;		/* Total number of pages */
+    enum pmbus_data_format format[PSC_NUM_CLASSES];
+    /*
+     * Support one set of coefficients for each sensor type
+     * Used for chips providing data in direct mode.
+     */
+    int m[PSC_NUM_CLASSES];	/* mantissa for direct data format */
+    int b[PSC_NUM_CLASSES];	/* offset */
+    int R[PSC_NUM_CLASSES];	/* exponent */
 
-	u32 func[PMBUS_PAGES];	/* Functionality, per page */
-	/*
-	 * The following functions map manufacturing specific register values
-	 * to PMBus standard register values. Specify only if mapping is
-	 * necessary.
-	 * Functions return the register value (read) or zero (write) if
-	 * successful. A return value of -ENODATA indicates that there is no
-	 * manufacturer specific register, but that a standard PMBus register
-	 * may exist. Any other negative return value indicates that the
-	 * register does not exist, and that no attempt should be made to read
-	 * the standard register.
-	 */
-	int (*read_byte_data)(struct i2c_client *client, int page, int reg);
-	int (*read_word_data)(struct i2c_client *client, int page, int reg);
-	int (*write_word_data)(struct i2c_client *client, int page, int reg,
-			       u16 word);
-	int (*write_byte)(struct i2c_client *client, int page, u8 value);
-	/*
-	 * The identify function determines supported PMBus functionality.
-	 * This function is only necessary if a chip driver supports multiple
-	 * chips, and the chip functionality is not pre-determined.
-	 */
-	int (*identify)(struct i2c_client *client,
-			struct pmbus_driver_info *info);
+    u32 func[PMBUS_PAGES];	/* Functionality, per page */
+    /*
+     * The following functions map manufacturing specific register values
+     * to PMBus standard register values. Specify only if mapping is
+     * necessary.
+     * Functions return the register value (read) or zero (write) if
+     * successful. A return value of -ENODATA indicates that there is no
+     * manufacturer specific register, but that a standard PMBus register
+     * may exist. Any other negative return value indicates that the
+     * register does not exist, and that no attempt should be made to read
+     * the standard register.
+     */
+    int (*read_byte_data)(struct i2c_client *client, int page, int reg);
+    int (*read_word_data)(struct i2c_client *client, int page, int reg);
+    int (*write_word_data)(struct i2c_client *client, int page, int reg,
+                           u16 word);
+    int (*write_byte)(struct i2c_client *client, int page, u8 value);
+    /*
+     * The identify function determines supported PMBus functionality.
+     * This function is only necessary if a chip driver supports multiple
+     * chips, and the chip functionality is not pre-determined.
+     */
+    int (*identify)(struct i2c_client *client,
+                    struct pmbus_driver_info *info);
 
-	int fan_num;		
+    int fan_num;
 };
 
 /* Function declarations */
@@ -381,9 +381,9 @@ void _pmbus_clear_faults(struct i2c_client *client);
 bool _pmbus_check_byte_register(struct i2c_client *client, int page, int reg);
 bool _pmbus_check_word_register(struct i2c_client *client, int page, int reg);
 int _pmbus_do_probe(struct i2c_client *client, const struct i2c_device_id *id,
-		   struct pmbus_driver_info *info);
+                    struct pmbus_driver_info *info);
 int pmbus_do_remove(struct i2c_client *client);
 const struct pmbus_driver_info *pmbus_get_driver_info(struct i2c_client
-						      *client);
+        *client);
 
 #endif /* PMBUS_H */

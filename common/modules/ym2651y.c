@@ -34,11 +34,11 @@
 
 #define MAX_FAN_DUTY_CYCLE 100
 
-/* Addresses scanned 
+/* Addresses scanned
  */
 static const unsigned short normal_i2c[] = { 0x58, 0x5b, I2C_CLIENT_END };
 
-/* Each client has this additional data 
+/* Each client has this additional data
  */
 struct ym2651y_data {
     struct device      *hwmon_dev;
@@ -71,21 +71,21 @@ struct ym2651y_data {
 };
 
 static ssize_t show_byte(struct device *dev, struct device_attribute *da,
-             char *buf);
+                         char *buf);
 static ssize_t show_word(struct device *dev, struct device_attribute *da,
-             char *buf);
+                         char *buf);
 static ssize_t show_linear(struct device *dev, struct device_attribute *da,
-             char *buf);
+                           char *buf);
 static ssize_t show_fan_fault(struct device *dev, struct device_attribute *da,
-             char *buf);
+                              char *buf);
 static ssize_t show_over_temp(struct device *dev, struct device_attribute *da,
-             char *buf);
+                              char *buf);
 static ssize_t show_ascii(struct device *dev, struct device_attribute *da,
-             char *buf);              
-static struct ym2651y_data *ym2651y_update_device(struct device *dev);         
-static ssize_t set_fan_duty_cycle(struct device *dev, struct device_attribute *da, 
-             const char *buf, size_t count);  
-static int ym2651y_write_word(struct i2c_client *client, u8 reg, u16 value);			 
+                          char *buf);
+static struct ym2651y_data *ym2651y_update_device(struct device *dev);
+static ssize_t set_fan_duty_cycle(struct device *dev, struct device_attribute *da,
+                                  const char *buf, size_t count);
+static int ym2651y_write_word(struct i2c_client *client, u8 reg, u16 value);
 
 enum ym2651y_sysfs_attributes {
     PSU_POWER_ON = 0,
@@ -115,7 +115,7 @@ enum ym2651y_sysfs_attributes {
     PSU_MFR_POUT_MAX
 };
 
-/* sysfs attributes for hwmon 
+/* sysfs attributes for hwmon
  */
 static SENSOR_DEVICE_ATTR(psu_power_on,    S_IRUGO, show_word,      NULL, PSU_POWER_ON);
 static SENSOR_DEVICE_ATTR(psu_temp_fault,  S_IRUGO, show_word,      NULL, PSU_TEMP_FAULT);
@@ -186,25 +186,25 @@ static struct attribute *ym2651y_attributes[] = {
 };
 
 static ssize_t show_byte(struct device *dev, struct device_attribute *da,
-             char *buf)
+                         char *buf)
 {
     struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
     struct ym2651y_data *data = ym2651y_update_device(dev);
-    
+
     return (attr->index == PSU_PMBUS_REVISION) ? sprintf(buf, "%d\n", data->pmbus_revision) :
-                                 sprintf(buf, "0\n");
+           sprintf(buf, "0\n");
 }
 
 static ssize_t show_word(struct device *dev, struct device_attribute *da,
-             char *buf)
+                         char *buf)
 {
     struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
     struct ym2651y_data *data = ym2651y_update_device(dev);
     u16 status = 0;
-    
+
     switch (attr->index) {
     case PSU_POWER_ON: /* psu_power_on, low byte bit 6 of status_word, 0=>ON, 1=>OFF */
-        status = (data->status_word & 0x40) ? 0 : 1; 
+        status = (data->status_word & 0x40) ? 0 : 1;
         break;
     case PSU_TEMP_FAULT: /* psu_temp_fault, low byte bit 2 of status_word, 0=>Normal, 1=>temp fault */
         status = (data->status_word & 0x4) >> 2;
@@ -213,7 +213,7 @@ static ssize_t show_word(struct device *dev, struct device_attribute *da,
         status = (data->status_word & 0x800) ? 0 : 1;
         break;
     }
-    
+
     return sprintf(buf, "%d\n", status);
 }
 
@@ -226,18 +226,18 @@ static int two_complement_to_int(u16 data, u8 valid_bit, int mask)
 }
 
 static ssize_t set_fan_duty_cycle(struct device *dev, struct device_attribute *da,
-			const char *buf, size_t count)
+                                  const char *buf, size_t count)
 {
     struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
     struct i2c_client *client = to_i2c_client(dev);
     struct ym2651y_data *data = i2c_get_clientdata(client);
     int nr = (attr->index == PSU_FAN1_DUTY_CYCLE) ? 0 : 1;
-	long speed;
-	int error;
+    long speed;
+    int error;
 
-	error = kstrtol(buf, 10, &speed);
-	if (error)
-		return error;
+    error = kstrtol(buf, 10, &speed);
+    if (error)
+        return error;
 
     if (speed < 0 || speed > MAX_FAN_DUTY_CYCLE)
         return -EINVAL;
@@ -251,7 +251,7 @@ static ssize_t set_fan_duty_cycle(struct device *dev, struct device_attribute *d
 }
 
 static ssize_t show_linear(struct device *dev, struct device_attribute *da,
-             char *buf)
+                           char *buf)
 {
     struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
     struct ym2651y_data *data = ym2651y_update_device(dev);
@@ -259,7 +259,7 @@ static ssize_t show_linear(struct device *dev, struct device_attribute *da,
     u16 value = 0;
     int exponent, mantissa;
     int multiplier = 1000;
-    
+
     switch (attr->index) {
     case PSU_V_OUT:
         value = data->v_out;
@@ -269,8 +269,8 @@ static ssize_t show_linear(struct device *dev, struct device_attribute *da,
         break;
     case PSU_P_OUT_UV:
         multiplier = 1000000;  /*For lm-sensors, unit is micro-Volt.*/
-        /*Passing through*/      
-    case PSU_P_OUT:  
+    /*Passing through*/
+    case PSU_P_OUT:
         value = data->p_out;
         break;
     case PSU_TEMP1_INPUT:
@@ -282,7 +282,7 @@ static ssize_t show_linear(struct device *dev, struct device_attribute *da,
         break;
     case PSU_FAN1_DUTY_CYCLE:
         value = data->fan_duty_cycle[0];
-		multiplier = 1;
+        multiplier = 1;
         break;
     case PSU_MFR_VIN_MIN:
         value = data->mfr_vin_min;
@@ -309,15 +309,15 @@ static ssize_t show_linear(struct device *dev, struct device_attribute *da,
         value = data->mfr_iin_max;
         break;
     }
-    
+
     exponent = two_complement_to_int(value >> 11, 5, 0x1f);
     mantissa = two_complement_to_int(value & 0x7ff, 11, 0x7ff);
-    return (exponent >= 0) ? sprintf(buf, "%d\n", (mantissa << exponent) * multiplier) : 
-                             sprintf(buf, "%d\n", (mantissa * multiplier) / (1 << -exponent)); 
+    return (exponent >= 0) ? sprintf(buf, "%d\n", (mantissa << exponent) * multiplier) :
+           sprintf(buf, "%d\n", (mantissa * multiplier) / (1 << -exponent));
 }
 
 static ssize_t show_fan_fault(struct device *dev, struct device_attribute *da,
-             char *buf)
+                              char *buf)
 {
     struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
     struct ym2651y_data *data = ym2651y_update_device(dev);
@@ -328,7 +328,7 @@ static ssize_t show_fan_fault(struct device *dev, struct device_attribute *da,
 }
 
 static ssize_t show_over_temp(struct device *dev, struct device_attribute *da,
-             char *buf)
+                              char *buf)
 {
     struct ym2651y_data *data = ym2651y_update_device(dev);
 
@@ -336,7 +336,7 @@ static ssize_t show_over_temp(struct device *dev, struct device_attribute *da,
 }
 
 static ssize_t show_ascii(struct device *dev, struct device_attribute *da,
-             char *buf)
+                          char *buf)
 {
     struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
     struct ym2651y_data *data = ym2651y_update_device(dev);
@@ -361,21 +361,21 @@ static ssize_t show_ascii(struct device *dev, struct device_attribute *da,
 
     return sprintf(buf, "%s\n", ptr);
 }
-    
+
 static const struct attribute_group ym2651y_group = {
     .attrs = ym2651y_attributes,
 };
 
 static int ym2651y_probe(struct i2c_client *client,
-            const struct i2c_device_id *dev_id)
+                         const struct i2c_device_id *dev_id)
 {
     struct ym2651y_data *data;
     int status;
 
-    if (!i2c_check_functionality(client->adapter, 
-        I2C_FUNC_SMBUS_BYTE_DATA | 
-        I2C_FUNC_SMBUS_WORD_DATA | 
-        I2C_FUNC_SMBUS_I2C_BLOCK)) {
+    if (!i2c_check_functionality(client->adapter,
+                                 I2C_FUNC_SMBUS_BYTE_DATA |
+                                 I2C_FUNC_SMBUS_WORD_DATA |
+                                 I2C_FUNC_SMBUS_I2C_BLOCK)) {
         status = -EIO;
         goto exit;
     }
@@ -404,8 +404,8 @@ static int ym2651y_probe(struct i2c_client *client,
     }
 
     dev_info(&client->dev, "%s: psu '%s'\n",
-         dev_name(data->hwmon_dev), client->name);
-    
+             dev_name(data->hwmon_dev), client->name);
+
     return 0;
 
 exit_remove:
@@ -413,7 +413,7 @@ exit_remove:
 exit_free:
     kfree(data);
 exit:
-    
+
     return status;
 }
 
@@ -424,7 +424,7 @@ static int ym2651y_remove(struct i2c_client *client)
     hwmon_device_unregister(data->hwmon_dev);
     sysfs_remove_group(&client->dev.kobj, &ym2651y_group);
     kfree(data);
-    
+
     return 0;
 }
 
@@ -461,19 +461,19 @@ static int ym2651y_write_word(struct i2c_client *client, u8 reg, u16 value)
 }
 
 static int ym2651y_read_block(struct i2c_client *client, u8 command, u8 *data,
-              int data_len)
+                              int data_len)
 {
     int result = i2c_smbus_read_i2c_block_data(client, command, data_len, data);
-    
+
     if (unlikely(result < 0))
         goto abort;
     if (unlikely(result != data_len)) {
         result = -EIO;
         goto abort;
     }
-    
+
     result = 0;
-    
+
 abort:
     return result;
 }
@@ -492,41 +492,43 @@ static struct ym2651y_data *ym2651y_update_device(struct device *dev)
 {
     struct i2c_client *client = to_i2c_client(dev);
     struct ym2651y_data *data = i2c_get_clientdata(client);
-    
+
     mutex_lock(&data->update_lock);
 
     if (time_after(jiffies, data->last_updated + HZ + HZ / 2)
-        || !data->valid) {
+            || !data->valid) {
         int i, status;
         u8 command;
-		u8 fan_dir[5] = {0};
+        u8 fan_dir[5] = {0};
         struct reg_data_byte regs_byte[] = { {0x19, &data->capability},
-                                             {0x7d, &data->over_temp}, 
-                                             {0x81, &data->fan_fault},
-                                             {0x98, &data->pmbus_revision}};
+            {0x7d, &data->over_temp},
+            {0x81, &data->fan_fault},
+            {0x98, &data->pmbus_revision}
+        };
         struct reg_data_word regs_word[] = { {0x79, &data->status_word},
-                                             {0x8b, &data->v_out},
-                                             {0x8c, &data->i_out},
-                                             {0x96, &data->p_out},
-                                             {0x8d, &data->temp},
-                                             {0x3b, &(data->fan_duty_cycle[0])},
-                                             {0x3c, &(data->fan_duty_cycle[1])},
-                                             {0x90, &data->fan_speed},
-                                             {0xa0, &data->mfr_vin_min},
-                                             {0xa1, &data->mfr_vin_max},
-                                             {0xa2, &data->mfr_iin_max},
-                                             {0xa3, &data->mfr_pin_max},
-                                             {0xa4, &data->mfr_vout_min},
-                                             {0xa5, &data->mfr_vout_max},
-                                             {0xa6, &data->mfr_iout_max},
-                                             {0xa7, &data->mfr_pout_max}};
+            {0x8b, &data->v_out},
+            {0x8c, &data->i_out},
+            {0x96, &data->p_out},
+            {0x8d, &data->temp},
+            {0x3b, &(data->fan_duty_cycle[0])},
+            {0x3c, &(data->fan_duty_cycle[1])},
+            {0x90, &data->fan_speed},
+            {0xa0, &data->mfr_vin_min},
+            {0xa1, &data->mfr_vin_max},
+            {0xa2, &data->mfr_iin_max},
+            {0xa3, &data->mfr_pin_max},
+            {0xa4, &data->mfr_vout_min},
+            {0xa5, &data->mfr_vout_max},
+            {0xa6, &data->mfr_iout_max},
+            {0xa7, &data->mfr_pout_max}
+        };
 
         dev_dbg(&client->dev, "Starting ym2651 update\n");
 
-        /* Read byte data */        
+        /* Read byte data */
         for (i = 0; i < ARRAY_SIZE(regs_byte); i++) {
             status = ym2651y_read_byte(client, regs_byte[i].reg);
-            
+
             if (status < 0)
             {
                 dev_dbg(&client->dev, "reg %d, err %d\n",
@@ -536,11 +538,11 @@ static struct ym2651y_data *ym2651y_update_device(struct device *dev)
                 *(regs_byte[i].value) = status;
             }
         }
-                    
-        /* Read word data */                    
+
+        /* Read word data */
         for (i = 0; i < ARRAY_SIZE(regs_word); i++) {
             status = ym2651y_read_word(client, regs_word[i].reg);
-            
+
             if (status < 0)
             {
                 dev_dbg(&client->dev, "reg %d, err %d\n",
@@ -557,35 +559,35 @@ static struct ym2651y_data *ym2651y_update_device(struct device *dev)
 
         if (status < 0) {
             dev_dbg(&client->dev, "reg %d, err %d\n", command, status);
-		}
-		
-		strncpy(data->fan_dir, fan_dir+1, ARRAY_SIZE(data->fan_dir)-1);
+        }
+
+        strncpy(data->fan_dir, fan_dir+1, ARRAY_SIZE(data->fan_dir)-1);
         data->fan_dir[ARRAY_SIZE(data->fan_dir)-1] = '\0';
-        
+
         /* Read mfr_id */
         command = 0x99;
-        status = ym2651y_read_block(client, command, data->mfr_id, 
-                                         ARRAY_SIZE(data->mfr_id)-1);    
+        status = ym2651y_read_block(client, command, data->mfr_id,
+                                    ARRAY_SIZE(data->mfr_id)-1);
         data->mfr_id[ARRAY_SIZE(data->mfr_id)-1] = '\0';
-        
+
         if (status < 0)
             dev_dbg(&client->dev, "reg %d, err %d\n", command, status);
-            
+
         /* Read mfr_model */
         command = 0x9a;
-        status = ym2651y_read_block(client, command, data->mfr_model, 
-                                         ARRAY_SIZE(data->mfr_model)-1);
+        status = ym2651y_read_block(client, command, data->mfr_model,
+                                    ARRAY_SIZE(data->mfr_model)-1);
         data->mfr_model[ARRAY_SIZE(data->mfr_model)-1] = '\0';
-        
+
         if (status < 0)
             dev_dbg(&client->dev, "reg %d, err %d\n", command, status);
-        
+
         /* Read mfr_revsion */
         command = 0x9b;
-        status = ym2651y_read_block(client, command, data->mfr_revsion, 
-                                         ARRAY_SIZE(data->mfr_revsion)-1);
+        status = ym2651y_read_block(client, command, data->mfr_revsion,
+                                    ARRAY_SIZE(data->mfr_revsion)-1);
         data->mfr_revsion[ARRAY_SIZE(data->mfr_revsion)-1] = '\0';
-        
+
         if (status < 0)
             dev_dbg(&client->dev, "reg %d, err %d\n", command, status);
 
