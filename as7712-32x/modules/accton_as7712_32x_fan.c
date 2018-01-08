@@ -36,6 +36,7 @@
 
 #define NUM_THERMAL_SENSORS     (3)     /* Get sum of this number of sensors.*/
 #define THERMAL_SENSORS_DRIVER     "lm75"
+#define THERMAL_SENSORS_ADDRS   {0x48, 0x49, 0x4a}
 
 #define		IN
 #define		OUT
@@ -492,6 +493,19 @@ static int get_lm75_temp(struct i2c_client *client, int *miniCelsius)
     return 0;
 }
 
+static bool lm75_addr_mached(unsigned short addr)
+{
+    int i;
+    unsigned short addrs[] = THERMAL_SENSORS_ADDRS;
+    
+    for (i = 0; i < ARRAY_SIZE(addrs); i++)
+    {
+        if( addr == addrs[i])
+            return 1;
+    }
+    return 0;
+}
+
 static int _find_lm75_device(struct device *dev, void *data)
 {
     struct device_driver *driver;
@@ -510,6 +524,10 @@ static int _find_lm75_device(struct device *dev, void *data)
             struct i2c_adapter *adap = client->adapter;
             int miniCelsius = 0;
 
+            if (! lm75_addr_mached(client->addr))
+            {
+                return 0;
+            }
 
             if (!adap) {
                 return -ENXIO;
