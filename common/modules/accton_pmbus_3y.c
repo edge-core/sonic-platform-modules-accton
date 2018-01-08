@@ -1,7 +1,11 @@
 /*
- * Hardware monitoring driver for PMBus devices
+ * Hardware monitoring driver for 3Y power devices.
  *
- * Copyright (c) 2010, 2011 Ericsson AB.
+ * Copyright (C) 2018 Accton Technology Corporation.
+ * Roy Lee <roy_lee@accton.com.tw>
+ *
+ * Based on pmbus.c, pmbus.h and pmbus_core.c.
+ * Copyright 2012 Guenter Roeck/Ericsson AB.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,13 +34,12 @@
 #include <linux/i2c/pmbus.h>
 #include "pmbus.h"
 
-#define REDUCE_MASK  1
-#define SUPPORT_LINEAR16     0
 
 enum chips {
     YM2651,
     YM2401,
     YM2851,
+    NUM_CHIPS,    
 };
 
 
@@ -123,7 +126,11 @@ struct pmbus_data {
 	u8 status_register;
 
 	u8 currpage;
+	bool linear_16;	
 };
+
+
+static int limited_models(const struct i2c_device_id *id);
 
 int _pmbus_set_page(struct i2c_client *client, u8 page)
 {
@@ -225,8 +232,11 @@ static bool pmbus_check_register(struct i2c_client *client,
 	int rv;
 	struct pmbus_data *data = i2c_get_clientdata(client);
 
+    if((data->flags & PMBUS_SKIP_STATUS_CHECK))
+        return 1;
+        
 	rv = func(client, page, reg);
-	if (rv >= 0 && !(data->flags & PMBUS_SKIP_STATUS_CHECK))
+	if (rv >= 0)
 		rv = pmbus_check_status_cml(client);
 	pmbus_clear_fault_page(client, -1);
 	return rv >= 0;
@@ -315,19 +325,16 @@ static long pmbus_reg2data_linear(struct pmbus_data *data,
 	s32 mantissa;
 	long val;
 
-#if SUPPORT_LINEAR16
     /* LINEAR16 */
-	if (sensor->class == PSC_VOLTAGE_OUT) {	
+	if ( data->linear_16 &&
+	    sensor->class == PSC_VOLTAGE_OUT) {	
 		exponent = data->exponent[sensor->page];
 		mantissa = (u16) sensor->data;
 	} else 
-#endif	
 	{				/* LINEAR11 */
 		exponent = ((s16)sensor->data) >> 11;
 		mantissa = ((s16)((sensor->data & 0x7ff) << 5)) >> 5;
 	}
-
-    //pr_err("[ROY]%s#%d, manti:%d exp:%d\n", __func__, __LINE__, mantissa, exponent);
     
 	val = mantissa;
 
@@ -437,8 +444,8 @@ static u16 pmbus_data2reg_linear(struct pmbus_data *data,
 	if (val == 0)
 		return 0;
 
-#if SUPPORT_LINEAR16 
-	if (sensor->class == PSC_VOLTAGE_OUT) {
+	if (data->linear_16 &&
+	    sensor->class == PSC_VOLTAGE_OUT) {
 		/* LINEAR16 does not support negative voltages */
 		if (val < 0)
 			return 0;
@@ -454,7 +461,6 @@ static u16 pmbus_data2reg_linear(struct pmbus_data *data,
 		val = DIV_ROUND_CLOSEST(val, 1000);
 		return val & 0xffff;
 	}
-#endif
 
 	if (val < 0) {
 		negative = true;
@@ -629,7 +635,6 @@ static ssize_t pmbus_show_boolean(struct device *dev,
 	val = pmbus_get_boolean(data, boolean, attr->index);
 	if (val < 0){
 	    return snprintf(buf, PAGE_SIZE, "%d\n", 1);
-		//return val;
     }		
 	return snprintf(buf, PAGE_SIZE, "%d\n", val);
 }
@@ -643,7 +648,6 @@ static ssize_t pmbus_show_sensor(struct device *dev,
         
 	if (sensor->data < 0){
 	    return snprintf(buf, PAGE_SIZE, "%d\n", 0);
-		//return sensor->data;
     }
 
 
@@ -874,9 +878,9 @@ static int pmbus_add_limit_attrs(struct i2c_client *client,
 	int i, ret;
 	struct pmbus_sensor *curr;
 
-    pr_err("[ROY]%s#%d, nlimit:%d\n", __func__, __LINE__, nlimit);
 	for (i = 0; i < nlimit; i++) {
-		if (1){//_pmbus_check_word_register(client, page, l->reg)) {
+		if (_pmbus_check_word_register(client, page, l->reg)) 
+        {
 			curr = pmbus_add_sensor(data, name, l->attr, index,
 						page, l->reg, attr->class,
 						attr->update || l->update,
@@ -1488,6 +1492,9 @@ static int pmbus_add_fan_attributes(struct i2c_client *client,
 		for (f = 0; f < ARRAY_SIZE(pmbus_fan_registers); f++) {
 			int regval;
 
+            if (f >= info->fan_num)
+                break;
+            
 			if (!(info->func[page] & pmbus_fan_flags[f]))
 				break;
 
@@ -1588,7 +1595,6 @@ static int pmbus_identify_common(struct i2c_client *client,
 	{
 		vout_mode = _pmbus_read_byte_data(client, page,
 						  PMBUS_VOUT_MODE);
-        pr_err("[ROY]%s#%d, func:%x\n", __func__, __LINE__, vout_mode);						  
     }
 						  
 	if (vout_mode >= 0 && vout_mode != 0xff) {
@@ -1653,14 +1659,11 @@ static int pmbus_init_common(struct i2c_client *client, struct pmbus_data *data,
 		}
 	}
 
-    pr_err("[ROY]%s#%d, func:%x\n", __func__, __LINE__, info->func[0]);
-    
 	if (info->pages <= 0 || info->pages > PMBUS_PAGES) {
 		dev_err(dev, "Bad number of PMBus pages: %d\n", info->pages);
 		return -ENODEV;
 	}
 
-    pr_err("[ROY]%s#%d, pages:%d\n", __func__, __LINE__, info->pages);
 	for (page = 0; page < info->pages; page++) {
 		ret = pmbus_identify_common(client, data, page);
 		if (ret < 0) {
@@ -1675,15 +1678,12 @@ int _pmbus_do_probe(struct i2c_client *client, const struct i2c_device_id *id,
 		   struct pmbus_driver_info *info)
 {
 	struct device *dev = &client->dev;
-	const struct pmbus_platform_data *pdata = dev_get_platdata(dev);
 	struct pmbus_data *data;
 	int ret;
 
 	if (!info)
 		return -ENODEV;
 
-    pr_err("[ROY]%s#%d, func:%x\n", __func__, __LINE__, info->func[0]);
-    
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_WRITE_BYTE
 				     | I2C_FUNC_SMBUS_BYTE_DATA
 				     | I2C_FUNC_SMBUS_WORD_DATA))
@@ -1697,8 +1697,21 @@ int _pmbus_do_probe(struct i2c_client *client, const struct i2c_device_id *id,
 	mutex_init(&data->update_lock);
 	data->dev = dev;
 
-	if (pdata)
-		data->flags = pdata->flags;
+    if (limited_models(id)) 
+    {
+        data->flags |= PMBUS_SKIP_STATUS_CHECK;
+        info->pages = 1;
+        info->fan_num = 1;
+        data->linear_16 = 0;
+    }
+    else
+    {
+        info->pages = id->driver_data;
+        info->fan_num = 4;
+        data->linear_16 = 1;
+        
+    }
+    
 	data->info = info;
 
 	ret = pmbus_init_common(client, data, info);
@@ -1766,36 +1779,37 @@ static void pmbus_find_sensor_groups(struct i2c_client *client,
 	if (info->func[0]
 	    && _pmbus_check_byte_register(client, 0, PMBUS_STATUS_INPUT))
 		info->func[0] |= PMBUS_HAVE_STATUS_INPUT;
-	if (_pmbus_check_byte_register(client, 0, PMBUS_FAN_CONFIG_12) &&
-	    _pmbus_check_word_register(client, 0, PMBUS_READ_FAN_SPEED_1)) {
-		info->func[0] |= PMBUS_HAVE_FAN12;
-		if (_pmbus_check_byte_register(client, 0, PMBUS_STATUS_FAN_12))
-			info->func[0] |= PMBUS_HAVE_STATUS_FAN12;
-	}
-#if 0 //REDUCE_MASK 	
-	if (_pmbus_check_byte_register(client, 0, PMBUS_FAN_CONFIG_34) &&
-	    _pmbus_check_word_register(client, 0, PMBUS_READ_FAN_SPEED_3)) {
-		info->func[0] |= PMBUS_HAVE_FAN34;
-		if (_pmbus_check_byte_register(client, 0, PMBUS_STATUS_FAN_34))
-			info->func[0] |= PMBUS_HAVE_STATUS_FAN34;
-	}
-#endif		
+    if (info->fan_num > 0)		
+    {
+    	if (_pmbus_check_byte_register(client, 0, PMBUS_FAN_CONFIG_12) &&
+    	    _pmbus_check_word_register(client, 0, PMBUS_READ_FAN_SPEED_1)) {
+    		info->func[0] |= PMBUS_HAVE_FAN12;
+    		if (_pmbus_check_byte_register(client, 0, PMBUS_STATUS_FAN_12))
+    			info->func[0] |= PMBUS_HAVE_STATUS_FAN12;
+    	}
+    }    	
+    if (info->fan_num > 2)		
+    {	
+    	if (_pmbus_check_byte_register(client, 0, PMBUS_FAN_CONFIG_34) &&
+    	    _pmbus_check_word_register(client, 0, PMBUS_READ_FAN_SPEED_3)) {
+    		info->func[0] |= PMBUS_HAVE_FAN34;
+    		if (_pmbus_check_byte_register(client, 0, PMBUS_STATUS_FAN_34))
+    			info->func[0] |= PMBUS_HAVE_STATUS_FAN34;
+    	}
+    }    	
+	
 	if (_pmbus_check_word_register(client, 0, PMBUS_READ_TEMPERATURE_1))
-		info->func[0] |= PMBUS_HAVE_TEMP;
-#if REDUCE_MASK 		
+		info->func[0] |= PMBUS_HAVE_TEMP;	
 	if (_pmbus_check_word_register(client, 0, PMBUS_READ_TEMPERATURE_2))
 		info->func[0] |= PMBUS_HAVE_TEMP2;
 	if (_pmbus_check_word_register(client, 0, PMBUS_READ_TEMPERATURE_3))
 		info->func[0] |= PMBUS_HAVE_TEMP3;
-#endif		
+	
 	if (info->func[0] & (PMBUS_HAVE_TEMP | PMBUS_HAVE_TEMP2
 			     | PMBUS_HAVE_TEMP3)
 	    && _pmbus_check_byte_register(client, 0,
 					 PMBUS_STATUS_TEMPERATURE))
 			info->func[0] |= PMBUS_HAVE_STATUS_TEMP;
-
-#if REDUCE_MASK
-
 
 	/* Sensors detected on all pages */
 	for (page = 0; page < info->pages; page++) {
@@ -1814,7 +1828,6 @@ static void pmbus_find_sensor_groups(struct i2c_client *client,
 		if (_pmbus_check_word_register(client, page, PMBUS_READ_POUT))
 			info->func[page] |= PMBUS_HAVE_POUT;
 	}
-#endif	
 }
 
 /*
@@ -1868,8 +1881,6 @@ static int pmbus_identify(struct i2c_client *client,
 	}
 
 
-    pr_err("[ROY]%s#%d, format:%d\n", __func__, __LINE__, info->format[PSC_VOLTAGE_OUT]);
-
 	/*
 	 * We should check if the COEFFICIENTS register is supported.
 	 * If it is, and the chip is configured for direct mode, we can read
@@ -1892,30 +1903,29 @@ abort:
 	return ret;
 }
 
+static int limited_models(const struct i2c_device_id *id)
+{
+    if (!strncmp(id->name, "ym2651", sizeof("ym2651"))|| 
+         !strncmp(id->name, "ym2401", sizeof("ym2401")) ||
+         !strncmp(id->name, "ym2851", sizeof("ym2851")))
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
 static int pmbus_probe(struct i2c_client *client,
 		       const struct i2c_device_id *id)
 {
 	struct pmbus_driver_info *info;
-	struct pmbus_platform_data *pdata = NULL;
-	struct device *dev = &client->dev;
-
+	
 	info = devm_kzalloc(&client->dev, sizeof(struct pmbus_driver_info),
 			    GFP_KERNEL);
 	if (!info)
 		return -ENOMEM;
 
-        if (!strncmp(id->name, "dps460", sizeof("dps460"))) {
-	        pdata = kzalloc(sizeof(struct pmbus_platform_data), GFP_KERNEL);
-	        if (!pdata) {
-	                kfree(info);
-	                return -ENOMEM;
-	        }
-                pdata->flags = PMBUS_SKIP_STATUS_CHECK;
-        }
-
-	info->pages = 1; //id->driver_data;
 	info->identify = pmbus_identify;
-	dev->platform_data = pdata;
 
 	return _pmbus_do_probe(client, id, info);
 }
@@ -1931,9 +1941,9 @@ int _pmbus_do_remove(struct i2c_client *client)
  * Use driver_data to set the number of pages supported by the chip.
  */
 static const struct i2c_device_id pmbus_id[] = {
-    { "roy2651", YM2651 },
-    { "roy2401", YM2401 },
-    { "roy2851", YM2851 },
+    { "ym2651", YM2651 },
+    { "ym2401", YM2401 },
+    { "ym2851", YM2851 },
 	{}
 };
 
@@ -1942,7 +1952,7 @@ MODULE_DEVICE_TABLE(i2c, pmbus_id);
 /* This is the driver that will be inserted */
 static struct i2c_driver pmbus_driver = {
 	.driver = {
-		   .name = "accton_pmbus",
+		   .name = "accton_pmbus_3y",
 		   },
 	.probe = pmbus_probe,
 	.remove = _pmbus_do_remove,
@@ -1951,6 +1961,6 @@ static struct i2c_driver pmbus_driver = {
 
 module_i2c_driver(pmbus_driver);
 
-MODULE_AUTHOR("Guenter Roeck");
-MODULE_DESCRIPTION("Generic PMBus driver");
+MODULE_AUTHOR("Roy Lee<roy_lee@accton.com.tw>");
+MODULE_DESCRIPTION("Accton PMBus driver for 3Y Power YM-2651Y.");
 MODULE_LICENSE("GPL");
