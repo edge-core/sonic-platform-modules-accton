@@ -47,7 +47,7 @@ verbose = False
 DEBUG = False
 args = []
 ALL_DEVICE = {}               
-DEVICE_NO = {'led':5, 'fan':6,'thermal':3, 'psu':2, 'sfp':32}
+DEVICE_NO = {'led':5, 'fan':6,'thermal':4, 'psu':2, 'sfp':32}
 FORCE = 0
 #logging.basicConfig(filename= PROJECT_NAME+'.log', filemode='w',level=logging.DEBUG)
 #logging.basicConfig(level=logging.INFO)
@@ -192,7 +192,7 @@ hwmon_prefix ={'led': led_prefix}
 
 i2c_prefix = '/sys/bus/i2c/devices/'
 i2c_bus = {'fan': ['2-0066']                 ,
-           'thermal': ['3-0048','3-0049', '3-004a'] ,
+           'thermal': ['3-0048','3-0049', '3-004a', '3-004b'] ,
            'psu': ['10-0050','11-0053'], 
            'sfp': ['-0050']}
 i2c_nodes = {'fan': ['present', 'front_speed_rpm', 'rear_speed_rpm'] ,
@@ -217,6 +217,7 @@ mknod =[
 'echo lm75 0x48 > /sys/bus/i2c/devices/i2c-3/new_device',
 'echo lm75 0x49 > /sys/bus/i2c/devices/i2c-3/new_device',
 'echo lm75 0x4a > /sys/bus/i2c/devices/i2c-3/new_device',
+'echo lm75 0x4b > /sys/bus/i2c/devices/i2c-3/new_device',
 'echo as7712_32x_psu1 0x53 > /sys/bus/i2c/devices/i2c-11/new_device',
 'echo ym2651 0x5b > /sys/bus/i2c/devices/i2c-11/new_device',
 'echo as7712_32x_psu2 0x50 > /sys/bus/i2c/devices/i2c-10/new_device',
@@ -238,6 +239,7 @@ mknod2 =[
 'echo lm75 0x48 > /sys/bus/i2c/devices/i2c-3/new_device',
 'echo lm75 0x49 > /sys/bus/i2c/devices/i2c-3/new_device',
 'echo lm75 0x4a > /sys/bus/i2c/devices/i2c-3/new_device',
+'echo lm75 0x4b > /sys/bus/i2c/devices/i2c-3/new_device',
 'echo as7712_32x_psu1 0x53 > /sys/bus/i2c/devices/i2c-11/new_device',
 'echo ym2651 0x5b > /sys/bus/i2c/devices/i2c-11/new_device',
 'echo as7712_32x_psu2 0x50 > /sys/bus/i2c/devices/i2c-10/new_device',
