@@ -143,7 +143,9 @@ static SENSOR_DEVICE_ATTR(psu_mfr_pin_max,   S_IRUGO, show_linear, NULL, PSU_MFR
 static SENSOR_DEVICE_ATTR(psu_mfr_pout_max,   S_IRUGO, show_linear, NULL, PSU_MFR_POUT_MAX);
 
 /*Duplicate nodes for lm-sensors.*/
-static SENSOR_DEVICE_ATTR(power1_input, S_IRUGO, show_linear,    NULL, PSU_P_OUT_UV);
+static SENSOR_DEVICE_ATTR(in3_input, S_IRUGO, show_linear,    NULL, PSU_V_OUT);
+static SENSOR_DEVICE_ATTR(curr2_input, S_IRUGO, show_linear,    NULL, PSU_I_OUT);
+static SENSOR_DEVICE_ATTR(power2_input, S_IRUGO, show_linear,    NULL, PSU_P_OUT_UV);
 static SENSOR_DEVICE_ATTR(temp1_input, S_IRUGO, show_linear,    NULL, PSU_TEMP1_INPUT);
 static SENSOR_DEVICE_ATTR(fan1_input, S_IRUGO, show_linear, NULL, PSU_FAN1_SPEED);
 static SENSOR_DEVICE_ATTR(temp1_fault,  S_IRUGO, show_word,      NULL, PSU_TEMP_FAULT);
@@ -174,7 +176,9 @@ static struct attribute *ym2651y_attributes[] = {
     &sensor_dev_attr_psu_mfr_vout_max.dev_attr.attr,
     &sensor_dev_attr_psu_mfr_iout_max.dev_attr.attr,
     /*Duplicate nodes for lm-sensors.*/
-    &sensor_dev_attr_power1_input.dev_attr.attr,
+    &sensor_dev_attr_curr2_input.dev_attr.attr,
+    &sensor_dev_attr_in3_input.dev_attr.attr,
+    &sensor_dev_attr_power2_input.dev_attr.attr,
     &sensor_dev_attr_temp1_input.dev_attr.attr,
     &sensor_dev_attr_fan1_input.dev_attr.attr,
     &sensor_dev_attr_temp1_fault.dev_attr.attr,
