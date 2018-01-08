@@ -39,7 +39,7 @@ enum chips {
     YM2651,
     YM2401,
     YM2851,
-    NUM_CHIPS,
+    LIMITED_CHIPS,
 };
 
 
@@ -1904,13 +1904,39 @@ abort:
     return ret;
 }
 
+/*
+ * Use driver_data to set the number of pages supported by the chip.
+ */
+static const struct i2c_device_id pmbus_id[] = {
+    { "accton_ym2651", YM2651 },
+    { "accton_ym2401", YM2401 },
+    { "accton_ym2851", YM2851 },
+    {}
+};
+
 static int limited_models(const struct i2c_device_id *id)
 {
-    if (!strncmp(id->name, "ym2651", sizeof("ym2651"))||
-            !strncmp(id->name, "ym2401", sizeof("ym2401")) ||
-            !strncmp(id->name, "ym2851", sizeof("ym2851")))
-    {
-        return 1;
+    int j;
+
+    if (!id->name)
+        return 0;
+
+    for (j = 0; j < ARRAY_SIZE(pmbus_id); j++) {
+        if (!pmbus_id[j].name)
+            continue;
+
+        if (!strcmp(id->name, pmbus_id[j].name))
+        {
+            if(id->driver_data < LIMITED_CHIPS)
+            {
+                return 1;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+
     }
 
     return 0;
@@ -1938,15 +1964,6 @@ int _pmbus_do_remove(struct i2c_client *client)
     kfree(data->group.attrs);
     return 0;
 }
-/*
- * Use driver_data to set the number of pages supported by the chip.
- */
-static const struct i2c_device_id pmbus_id[] = {
-    { "ym2651", YM2651 },
-    { "ym2401", YM2401 },
-    { "ym2851", YM2851 },
-    {}
-};
 
 MODULE_DEVICE_TABLE(i2c, pmbus_id);
 

@@ -26,6 +26,11 @@
 #include <linux/i2c.h>
 #include <linux/slab.h>
 #include <linux/list.h>
+#include <linux/dmi.h>
+#include <linux/hwmon.h>
+#include <linux/hwmon-sysfs.h>
+#include <linux/err.h>
+#include <linux/mutex.h>
 
 static LIST_HEAD(cpld_client_list);
 static struct mutex	 list_lock;
@@ -205,6 +210,22 @@ static void __exit accton_i2c_cpld_exit(void)
 {
     i2c_del_driver(&accton_i2c_cpld_driver);
 }
+
+static struct dmi_system_id as7712_dmi_table[] = {
+    {
+        .ident = "Accton AS7712",
+        .matches = {
+            DMI_MATCH(DMI_SYS_VENDOR, "Accton"),
+            DMI_MATCH(DMI_PRODUCT_NAME, "AS7712"),
+        },
+    }
+};
+
+int platform_accton_as7712_32x(void)
+{
+    return dmi_check_system(as7712_dmi_table);
+}
+EXPORT_SYMBOL(platform_accton_as7712_32x);
 
 MODULE_AUTHOR("Brandon Chuang <brandon_chuang@accton.com.tw>");
 MODULE_DESCRIPTION("accton_i2c_cpld driver");
