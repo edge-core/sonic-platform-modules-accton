@@ -1748,12 +1748,6 @@ out_kfree:
     return ret;
 }
 
-
-MODULE_AUTHOR("Guenter Roeck");
-MODULE_DESCRIPTION("PMBus core driver");
-MODULE_LICENSE("GPL");
-
-
 /*
  * Find sensor groups and status registers on each page.
  */
