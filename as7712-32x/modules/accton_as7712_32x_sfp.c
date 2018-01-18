@@ -1154,12 +1154,7 @@ static struct i2c_driver sfp_driver = {
 
 static int __init sfp_init(void)
 {
-	extern int platform_accton_as7712_32x(void);
-	if (!platform_accton_as7712_32x()) {
-		return -ENODEV;
-	}
-
-	return i2c_add_driver(&sfp_driver);
+    return i2c_add_driver(&sfp_driver);
 }
 
 static void __exit sfp_exit(void)

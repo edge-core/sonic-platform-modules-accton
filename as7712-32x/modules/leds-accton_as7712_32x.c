@@ -649,11 +649,6 @@ static int __init accton_as7712_32x_led_init(void)
 {
 	int ret;
 
-	extern int platform_accton_as7712_32x(void);
-	if (!platform_accton_as7712_32x()) {
-		return -ENODEV;
-	}	
-	
 	ret = platform_driver_register(&accton_as7712_32x_led_driver);
 	if (ret < 0) {
 		goto exit;

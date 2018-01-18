@@ -271,11 +271,6 @@ static struct as7712_32x_psu_data *as7712_32x_psu_update_device(struct device *d
 
 static int __init as7712_32x_psu_init(void)
 {
-	extern int platform_accton_as7712_32x(void);
-	if (!platform_accton_as7712_32x()) {
-		return -ENODEV;
-	}
-
     return i2c_add_driver(&as7712_32x_psu_driver);
 }
 

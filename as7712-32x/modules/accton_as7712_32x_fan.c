@@ -759,11 +759,6 @@ static struct i2c_driver as7712_32x_fan_driver = {
 
 static int __init as7712_32x_fan_init(void)
 {
-    extern int platform_accton_as7712_32x(void);
-    if (!platform_accton_as7712_32x()) {
-        return -ENODEV;
-    }
-
     return i2c_add_driver(&as7712_32x_fan_driver);
 }
 
