@@ -63,22 +63,11 @@ typedef ssize_t (*store_func)(struct device *dev,
                               struct device_attribute *attr,
                               const char *buf, size_t count);
 
-#define TRANSCEIVER_PRESENT_ATTR_ID(index)   MODULE_PRESENT_##index
-
-enum E_cpld_attributes_index {
-    ATTR_INDEX_CPLD_VERSION,
-    ATTR_INDEX_ACCESS,
-    ATTR_INDEX_PRESENT_ALL,
-    /* transceiver attributes */
-    TRANSCEIVER_PRESENT_ATTR_ID(1),
-
-}	;
-
 enum models {
     AS7712_32X,
     AS7716_32X,
     AS7816_64X,
-    AS5712_54X,
+    PLAIN_CPLD,    /*No attribute but add i2c addr to the list.*/
     NUM_MODEL
 };
 
@@ -157,14 +146,15 @@ static ssize_t show_byte(struct device *dev,
                          struct device_attribute *devattr, char *buf);
 static ssize_t show_presnet_all(struct device *dev,
                                 struct device_attribute *devattr, char *buf);
-
+static ssize_t access(struct device *dev, struct device_attribute *da,
+                      const char *buf, size_t count);
+                      
 struct base_attrs common_attrs[NUM_COMMON_ATTR] =
 {
     [CMN_VERSION] = {"version", S_IRUGO, show_byte, NULL},
     [CMN_ACCESS] =  {"access",  S_IWUSR, NULL, set_byte},
     [CMN_PRESENT_ALL] = {"module_present_all", S_IRUGO, show_presnet_all, NULL},
 };
-
 
 struct attrs as7712_common[NUM_COMMON_ATTR] = {
     {1, &common_attrs[CMN_VERSION]},
@@ -176,33 +166,27 @@ struct attrs as7816_common[NUM_COMMON_ATTR] = {
     {0, &common_attrs[CMN_ACCESS]},
     {0x70, &common_attrs[CMN_PRESENT_ALL]},
 };
-struct attrs as5712_common[NUM_COMMON_ATTR] = {
+struct attrs plain_common[NUM_COMMON_ATTR] = {
     {1, &common_attrs[CMN_VERSION]},
-    {0, &common_attrs[CMN_ACCESS]},
-    {0x70, &common_attrs[CMN_PRESENT_ALL]},
+    {0, NULL},
+    {0, NULL},
 };
 struct attrs *model_attr[NUM_MODEL] = {
     as7712_common, as7712_common /*7716's as 7712*/,
-    as7816_common, as5712_common
+    as7816_common, plain_common
 };
-
 
 static LIST_HEAD(cpld_client_list);
 static struct mutex	 list_lock;
 
 
-
-static ssize_t access(struct device *dev, struct device_attribute *da,
-                      const char *buf, size_t count);
-
 /* Addresses scanned for accton_i2c_cpld
  */
 static const unsigned short normal_i2c[] = { I2C_CLIENT_END };
 
-static int get_sfp_spec(int model, u16 *num, u8 *types) {
 
-    *types = 0;
-    *num = 0;
+static int get_sfp_spec(int model, u16 *num, u8 *types) 
+{
     switch (model) {
     case AS7712_32X:
     case AS7716_32X:
@@ -212,23 +196,19 @@ static int get_sfp_spec(int model, u16 *num, u8 *types) {
     case AS7816_64X:
         *num = 64;
         *types |= HAS_QSFP;
-    case AS5712_54X:
-        *num = 54;
-        *types |= HAS_SFP;
-        *types |= HAS_QSFP;
-        break;
     default:
-        return -EINVAL;
+        *types = 0;
+        *num = 0;    
     }
 
     return 0;
 }
 
-static int get_present_reg(struct cpld_data *data,
-                           int index, u8 *reg ,u8 *mask) {
-
+static int get_present_reg(struct cpld_data *data, int index, 
+            u8 *reg ,u8 *mask)
+{
     struct attrs *a = data->cmn_attr;
-    u8 start = a[CMN_PRESENT_ALL].reg;
+    u8 start = a[CMN_PRESENT_ALL].reg;  /*Take present_all.reg as started addr.*/
 
     *reg = start + ((index)/8);
     *mask = 1 << ((index)%8);
@@ -463,16 +443,25 @@ static int add_attributes(struct i2c_client *client,
 {
     int i;
     char name[NAME_SIZE+1];
-
-
     struct attrs *a = data->cmn_attr;
-
-    /*Overall attr*/
+    
+    if (NULL == a)
+        return -EINVAL;
+        
+    /*Common attr*/
     for (i = 0; i < NUM_COMMON_ATTR; i++)
     {
-        u8 reg = a[i].reg;
-        struct base_attrs *b = a[i].base;
+        u8 reg;
+        struct base_attrs *b;
 
+        if (NULL == a+i)
+            continue;
+            
+        reg = a[i].reg;        
+        b = a[i].base;
+        if (NULL == b)
+            continue;
+            
         snprintf(name, NAME_SIZE, common_attrs[i].name);
         if (add_sensor(data, b->name,
                        reg,
@@ -524,9 +513,7 @@ static int accton_i2c_cpld_probe(struct i2c_client *client,
 
     data->model = dev_id->driver_data;
     data->cmn_attr = model_attr[data->model];
-    get_sfp_spec(dev_id->driver_data, &data->sfp_num, &data->sfp_types);
-
-
+    get_sfp_spec(data->model, &data->sfp_num, &data->sfp_types);
 
     i2c_set_clientdata(client, data);
     mutex_init(&data->update_lock);
@@ -638,7 +625,7 @@ static const struct i2c_device_id accton_i2c_cpld_id[] = {
     { "cpld_as7712", AS7712_32X},
     { "cpld_as7716", AS7716_32X},
     { "cpld_as7816", AS7816_64X},
-    { "cpld_as5712", AS5712_54X},
+    { "cpld_plain", PLAIN_CPLD},    
     { },
 };
 MODULE_DEVICE_TABLE(i2c, accton_i2c_cpld_id);
