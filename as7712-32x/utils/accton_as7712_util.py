@@ -160,7 +160,7 @@ kos = [
 'modprobe accton_i2c_cpld'  ,
 'modprobe ym2651y'                  ,
 'modprobe accton_as7712_32x_fan'     ,
-'modprobe accton_as7712_32x_sfp'      ,
+'modprobe optoe'      ,
 'modprobe leds-accton_as7712_32x'      ,
 'modprobe accton_as7712_32x_psu' ]
 
@@ -198,7 +198,7 @@ i2c_bus = {'fan': ['2-0066']                 ,
 i2c_nodes = {'fan': ['present', 'front_speed_rpm', 'rear_speed_rpm'] ,
            'thermal': ['hwmon/hwmon*/temp1_input'] ,
            'psu': ['psu_present ', 'psu_power_good']    ,
-           'sfp': ['sfp_is_present ', 'sfp_tx_disable_all']}
+           'sfp': ['module_present', 'sfp_tx_disable_all']}
                    
 sfp_map =  [22,23,24,25,27,26,29,28,
                  18,19,20,21,30,31,32,33,
@@ -222,15 +222,15 @@ mknod =[
 'echo ym2651 0x5b > /sys/bus/i2c/devices/i2c-11/new_device',
 'echo as7712_32x_psu2 0x50 > /sys/bus/i2c/devices/i2c-10/new_device',
 'echo ym2651 0x58 > /sys/bus/i2c/devices/i2c-10/new_device',
-'echo accton_i2c_cpld 0x60 > /sys/bus/i2c/devices/i2c-4/new_device',
-'echo accton_i2c_cpld 0x62 > /sys/bus/i2c/devices/i2c-5/new_device',
-'echo accton_i2c_cpld 0x64 > /sys/bus/i2c/devices/i2c-6/new_device']
+'echo cpld_as7712 0x60 > /sys/bus/i2c/devices/i2c-4/new_device',
+'echo cpld_plain 0x62 > /sys/bus/i2c/devices/i2c-5/new_device',
+'echo cpld_plain 0x64 > /sys/bus/i2c/devices/i2c-6/new_device']
 
 mknod2 =[                 
 'echo pca9548 0x76 > /sys/bus/i2c/devices/i2c-1/new_device',
 'echo pca9548 0x71 > /sys/bus/i2c/devices/i2c-0/new_device' ,
 'echo pca9548 0x72 > /sys/bus/i2c/devices/i2c-0/new_device' ,
-'echo pca9548 0x73 > /sys/bus/i2c/devices/i2c-0/new_device' ,
+'echo pca9548 0X73 > /sys/bus/i2c/devices/i2c-0/new_device' ,
 'echo pca9548 0x74 > /sys/bus/i2c/devices/i2c-0/new_device',
 'echo pca9548 0x75 > /sys/bus/i2c/devices/i2c-0/new_device',
 'echo 24c02 0x57 > /sys/bus/i2c/devices/i2c-0/new_device',
@@ -244,9 +244,9 @@ mknod2 =[
 'echo ym2651 0x5b > /sys/bus/i2c/devices/i2c-11/new_device',
 'echo as7712_32x_psu2 0x50 > /sys/bus/i2c/devices/i2c-10/new_device',
 'echo ym2651 0x58 > /sys/bus/i2c/devices/i2c-10/new_device',
-'echo accton_i2c_cpld 0x60 > /sys/bus/i2c/devices/i2c-4/new_device',
-'echo accton_i2c_cpld 0x62 > /sys/bus/i2c/devices/i2c-5/new_device',
-'echo accton_i2c_cpld 0x64 > /sys/bus/i2c/devices/i2c-6/new_device']
+'echo cpld_as7712 0x60 > /sys/bus/i2c/devices/i2c-4/new_device',
+'echo cpld_plain 0x62 > /sys/bus/i2c/devices/i2c-5/new_device',
+'echo cpld_plain 0x64 > /sys/bus/i2c/devices/i2c-6/new_device']
        
        
 def i2c_order_check():    
@@ -291,7 +291,7 @@ def device_install():
                 if FORCE == 0:                
                     return status  
     for i in range(0,len(sfp_map)):
-        status, output =log_os_system("echo sfp"+str(i+1)+" 0x50 > /sys/bus/i2c/devices/i2c-"+str(sfp_map[i])+"/new_device", 1)
+        status, output =log_os_system("echo optoe1 0x50 > /sys/bus/i2c/devices/i2c-"+str(sfp_map[i])+"/new_device", 1)
         if status:
             print output
             if FORCE == 0:            
