@@ -71,11 +71,10 @@ enum models {
     NUM_MODEL
 };
 
-enum port_type {
+enum sfp_func {
     HAS_SFP     = 1<<0 ,
     HAS_QSFP    = 1<<1 ,
 };
-
 
 enum common_attrs {
     CMN_VERSION,
@@ -84,6 +83,12 @@ enum common_attrs {
     NUM_COMMON_ATTR
 };
 
+enum sfp_attrs {
+    SFP_PRESENT,
+    SFP_RESET,
+    SFP_LP_MODE,
+    NUM_SFP_ATTR
+};
 
 struct cpld_sensor {
     struct cpld_sensor *next;
@@ -118,7 +123,7 @@ struct cpld_data {
     int  attr_index;
     u16  sfp_num;
     u8   sfp_types;
-    struct attrs *cmn_attr;
+    struct model_attrs *cmn_attr;
 };
 
 struct cpld_client_node {
@@ -136,45 +141,79 @@ struct base_attrs {
 
 struct attrs {
     u8 reg;
+    bool invert;
     struct base_attrs *base;
 };
 
+struct model_attrs {
+    struct attrs *cmn;
+    struct attrs *portly;
+};
 
-static ssize_t set_byte(struct device *dev, struct device_attribute *da,
-                        const char *buf, size_t count);
-static ssize_t show_byte(struct device *dev,
-                         struct device_attribute *devattr, char *buf);
+
+static ssize_t show_bit(struct device *dev,
+                        struct device_attribute *devattr, char *buf);
 static ssize_t show_presnet_all(struct device *dev,
                                 struct device_attribute *devattr, char *buf);
+static ssize_t set_1bit(struct device *dev, struct device_attribute *da,
+                        const char *buf, size_t count);
+static ssize_t set_byte(struct device *dev, struct device_attribute *da,
+                        const char *buf, size_t count);
 static ssize_t access(struct device *dev, struct device_attribute *da,
                       const char *buf, size_t count);
-                      
+
 struct base_attrs common_attrs[NUM_COMMON_ATTR] =
 {
-    [CMN_VERSION] = {"version", S_IRUGO, show_byte, NULL},
+    [CMN_VERSION] = {"version", S_IRUGO, show_bit, NULL},
     [CMN_ACCESS] =  {"access",  S_IWUSR, NULL, set_byte},
     [CMN_PRESENT_ALL] = {"module_present_all", S_IRUGO, show_presnet_all, NULL},
 };
 
-struct attrs as7712_common[NUM_COMMON_ATTR] = {
-    {1, &common_attrs[CMN_VERSION]},
-    {0, &common_attrs[CMN_ACCESS]},
-    {0x30, &common_attrs[CMN_PRESENT_ALL]},
+struct attrs as7712_common[] = {
+    {0x01, false, &common_attrs[CMN_VERSION]},
+    {0x00, false, &common_attrs[CMN_ACCESS]},
+    {0x30, false, &common_attrs[CMN_PRESENT_ALL]},
+    {0},
 };
-struct attrs as7816_common[NUM_COMMON_ATTR] = {
-    {1, &common_attrs[CMN_VERSION]},
-    {0, &common_attrs[CMN_ACCESS]},
-    {0x70, &common_attrs[CMN_PRESENT_ALL]},
+struct attrs as7816_common[] = {
+    {0x01, false, &common_attrs[CMN_VERSION]},
+    {0x00, false, &common_attrs[CMN_ACCESS]},
+    {0x30, false, &common_attrs[CMN_PRESENT_ALL]},
+    {0},
 };
-struct attrs plain_common[NUM_COMMON_ATTR] = {
-    {1, &common_attrs[CMN_VERSION]},
-    {0, NULL},
-    {0, NULL},
+struct attrs plain_common[] = {
+    {0x01, false, &common_attrs[CMN_VERSION]},
+    {0},
 };
-struct attrs *model_attr[NUM_MODEL] = {
-    as7712_common, as7712_common /*7716's as 7712*/,
-    as7816_common, plain_common
+
+struct base_attrs portly_attrs[] =
+{
+    [SFP_PRESENT] = {"module_present", S_IRUGO, show_bit, NULL},
+    [SFP_RESET] = {"module_reset", S_IRUGO|S_IWUGO, show_bit, set_1bit},
+    [SFP_LP_MODE] =  {0},
+    [NUM_SFP_ATTR] = {0},
 };
+
+struct attrs as7712_feat[] = {
+    {0x30, true, &portly_attrs[SFP_PRESENT]},
+    {0x04, true, &portly_attrs[SFP_RESET]},
+    {0},
+};
+
+struct attrs as7816_feat[] = {
+    {0x70, true, &portly_attrs[SFP_PRESENT]},
+    {0x04, true, &portly_attrs[SFP_RESET]},
+    {0},
+};
+
+struct model_attrs models_attr[NUM_MODEL] = {
+    {.cmn = as7712_common, .portly=as7712_feat},
+    {.cmn = as7712_common, .portly=as7712_feat}, /*7716's as 7712*/
+    {.cmn = as7816_common, .portly=as7816_feat},
+    {.cmn = plain_common,  .portly=NULL},
+};
+
+
 
 static LIST_HEAD(cpld_client_list);
 static struct mutex	 list_lock;
@@ -185,36 +224,47 @@ static struct mutex	 list_lock;
 static const unsigned short normal_i2c[] = { I2C_CLIENT_END };
 
 
-static int get_sfp_spec(int model, u16 *num, u8 *types) 
+static int get_sfp_spec(int model, u16 *num, u8 *types)
 {
     switch (model) {
     case AS7712_32X:
     case AS7716_32X:
         *num = 32;
-        *types |= HAS_QSFP;
+        *types = HAS_QSFP;
         break;
     case AS7816_64X:
         *num = 64;
-        *types |= HAS_QSFP;
+        *types = HAS_QSFP;
     default:
         *types = 0;
-        *num = 0;    
+        *num = 0;
     }
 
     return 0;
 }
-
-static int get_present_reg(struct cpld_data *data, int index, 
-            u8 *reg ,u8 *mask)
+#if 0
+static int get_present_reg(struct cpld_data *data, int index,
+                           u8 *reg ,u8 *mask)
 {
-    struct attrs *a = data->cmn_attr;
-    u8 start = a[CMN_PRESENT_ALL].reg;  /*Take present_all.reg as started addr.*/
+    struct model_attrs *a = data->cmn_attr;
+    u8 start = a->cmn[CMN_PRESENT_ALL].reg;  /*Take present_all.reg as started addr.*/
 
     *reg = start + ((index)/8);
     *mask = 1 << ((index)%8);
 
     return 0;
 }
+#endif
+
+static int get_reg_bit(u8 reg_start, int index,
+                       u8 *reg ,u8 *mask)
+{
+    *reg = reg_start + ((index)/8);
+    *mask = 1 << ((index)%8);
+
+    return 0;
+}
+
 
 static int as7712_32x_cpld_write_internal(struct i2c_client *client, u8 reg, u8 value)
 {
@@ -252,24 +302,6 @@ static int as7712_32x_cpld_read_internal(struct i2c_client *client, u8 reg)
     return status;
 }
 
-static ssize_t show_byte(struct device *dev,
-                         struct device_attribute *devattr, char *buf)
-{
-    int value;
-    struct i2c_client *client = to_i2c_client(dev);
-    struct cpld_data *data = i2c_get_clientdata(client);
-    struct cpld_sensor *sensor = to_cpld_sensor(devattr);
-
-    mutex_lock(&data->update_lock);
-    value = as7712_32x_cpld_read_internal(client, sensor->reg);
-    value = value & sensor->mask;
-    if (sensor->invert)
-        value = !value;
-    mutex_unlock(&data->update_lock);
-
-    return snprintf(buf, PAGE_SIZE, "%x\n", value);
-}
-
 static ssize_t show_presnet_all(struct device *dev,
                                 struct device_attribute *devattr, char *buf)
 {
@@ -296,6 +328,67 @@ static ssize_t show_presnet_all(struct device *dev,
     return snprintf(buf, MAX_RESP_LENGTH, "%s\n", buf);
 }
 
+static ssize_t show_bit(struct device *dev,
+                        struct device_attribute *devattr, char *buf)
+{
+    int value;
+    struct i2c_client *client = to_i2c_client(dev);
+    struct cpld_data *data = i2c_get_clientdata(client);
+    struct cpld_sensor *sensor = to_cpld_sensor(devattr);
+
+    mutex_lock(&data->update_lock);
+    value = as7712_32x_cpld_read_internal(client, sensor->reg);
+    value = value & sensor->mask;
+    if (sensor->invert)
+        value = !value;
+    mutex_unlock(&data->update_lock);
+
+    return snprintf(buf, PAGE_SIZE, "%x\n", value);
+}
+
+static ssize_t set_1bit(struct device *dev, struct device_attribute *devattr,
+                        const char *buf, size_t count)
+{
+    long is_reset;
+    int value, status;
+    struct i2c_client *client = to_i2c_client(dev);
+    struct cpld_data *data = i2c_get_clientdata(client);
+    struct cpld_sensor *sensor = to_cpld_sensor(devattr);
+    u8 cpld_bit, reg;
+
+    status = kstrtol(buf, 10, &is_reset);
+    if (status) {
+        return status;
+    }
+    reg = sensor->reg;
+    cpld_bit = sensor->mask;
+    mutex_lock(&data->update_lock);
+    value = as7712_32x_cpld_read_internal(client, reg);
+    if (unlikely(status < 0)) {
+        goto exit;
+    }
+
+    if (sensor->invert)
+        is_reset = !is_reset;
+
+    if (is_reset) {
+        value |= cpld_bit;
+    }
+    else {
+        value &= ~cpld_bit;
+    }
+
+    status = as7712_32x_cpld_write_internal(client, reg, value);
+    if (unlikely(status < 0)) {
+        goto exit;
+    }
+    mutex_unlock(&data->update_lock);
+    return count;
+
+exit:
+    mutex_unlock(&data->update_lock);
+    return status;
+}
 
 static ssize_t set_byte(struct device *dev, struct device_attribute *da,
                         const char *buf, size_t count)
@@ -443,30 +536,33 @@ static int add_attributes(struct i2c_client *client,
 {
     int i;
     char name[NAME_SIZE+1];
-    struct attrs *a = data->cmn_attr;
-    
-    if (NULL == a)
+    struct model_attrs *m = data->cmn_attr;
+    struct attrs *cmn = m->cmn;
+    struct attrs *portly = m->portly;
+
+    if (NULL == cmn)
         return -EINVAL;
-        
+
     /*Common attr*/
     for (i = 0; i < NUM_COMMON_ATTR; i++)
     {
         u8 reg;
         struct base_attrs *b;
 
-        if (NULL == a+i)
+        if (NULL == cmn+i)
             continue;
-            
-        reg = a[i].reg;        
-        b = a[i].base;
+
+        reg = cmn[i].reg;
+        b = cmn[i].base;
         if (NULL == b)
-            continue;
-            
+            break;
+
         snprintf(name, NAME_SIZE, common_attrs[i].name);
         if (add_sensor(data, b->name,
                        reg,
                        0xff,
-                       false, COMMON_CLS, true,
+                       cmn[i].invert,
+                       COMMON_CLS, true,
                        b->mode,
                        b->get,
                        b->set) == NULL)
@@ -475,21 +571,30 @@ static int add_attributes(struct i2c_client *client,
         }
     }
 
-    /*Port-wise attr*/
-    for (i = 0; i < data->sfp_num; i++)
-    {
-        u8 reg, mask;
+    /* Port-wise attributes.*/
+    for(; portly; portly++) {
+        struct base_attrs *b;
 
-        snprintf(name, NAME_SIZE, "%s_%s_%d", "module", "present", i+1);
-        get_present_reg(data, i, &reg, &mask);
-        if (add_sensor(data, name,
-                       reg, mask, true,
-                       PORT_CLS, true, S_IRUGO, show_byte, NULL) == NULL)
+        if (portly == NULL)
+            break;
+
+        b = portly->base;
+        if (b == NULL)
+            break;
+
+        for (i = 0; i < data->sfp_num; i++)
         {
-            return -ENOMEM;
+            u8 reg, mask, invert;
+            snprintf(name, NAME_SIZE, "%s_%d", b->name, i+1);
+            get_reg_bit(portly->reg, i, &reg, &mask);
+            invert = portly->invert;
+            if (add_sensor(data, name, reg, mask, invert,
+                           PORT_CLS, true, b->mode,  b->get,  b->set) == NULL)
+            {
+                return -ENOMEM;
+            }
         }
     }
-
 
     return 0;
 }
@@ -512,7 +617,7 @@ static int accton_i2c_cpld_probe(struct i2c_client *client,
     }
 
     data->model = dev_id->driver_data;
-    data->cmn_attr = model_attr[data->model];
+    data->cmn_attr = &models_attr[data->model];
     get_sfp_spec(data->model, &data->sfp_num, &data->sfp_types);
 
     i2c_set_clientdata(client, data);
@@ -625,7 +730,7 @@ static const struct i2c_device_id accton_i2c_cpld_id[] = {
     { "cpld_as7712", AS7712_32X},
     { "cpld_as7716", AS7716_32X},
     { "cpld_as7816", AS7816_64X},
-    { "cpld_plain", PLAIN_CPLD},    
+    { "cpld_plain", PLAIN_CPLD},
     { },
 };
 MODULE_DEVICE_TABLE(i2c, accton_i2c_cpld_id);
