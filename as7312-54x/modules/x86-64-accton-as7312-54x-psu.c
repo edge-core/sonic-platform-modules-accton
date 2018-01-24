@@ -1,8 +1,8 @@
 /*
  * An hwmon driver for accton as7312_54x Power Module
  *
- * Copyright (C) 2015 Accton Technology Corporation.
- * Copyright (C)  Brandon Chuang <brandon_chuang@accton.com.tw>
+ * Copyright (C) 2014 Accton Technology Corporation.
+ * Brandon Chuang <brandon_chuang@accton.com.tw>
  *
  * Based on ad7414.c
  * Copyright 2006 Stefan Roese <sr at denx.de>, DENX Software Engineering
@@ -21,9 +21,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-#if 0
-#define DEBUG
-#endif
 
 #include <linux/module.h>
 #include <linux/jiffies.h>
@@ -34,24 +31,17 @@
 #include <linux/mutex.h>
 #include <linux/sysfs.h>
 #include <linux/slab.h>
+#include <linux/delay.h>
+#include <linux/dmi.h>
 
-
-#define PSU_STATUS_I2C_ADDR			0x60
-#define PSU_STATUS_I2C_REG_OFFSET	0x2
-
-#define IS_POWER_GOOD(id, value)	(!!(value & BIT(id*4 + 1)))
-#define IS_PRESENT(id, value)		(!(value & BIT(id*4)))
-
-static ssize_t show_index(struct device *dev, struct device_attribute *da, char *buf);
 static ssize_t show_status(struct device *dev, struct device_attribute *da, char *buf);
 static ssize_t show_model_name(struct device *dev, struct device_attribute *da, char *buf);
 static int as7312_54x_psu_read_block(struct i2c_client *client, u8 command, u8 *data,int data_len);
 extern int as7312_54x_i2c_cpld_read(unsigned short cpld_addr, u8 reg);
-static int as7312_54x_psu_model_name_get(struct device *dev);
 
 /* Addresses scanned
  */
-static const unsigned short normal_i2c[] = { I2C_CLIENT_END };
+static const unsigned short normal_i2c[] = { 0x50, 0x53, I2C_CLIENT_END };
 
 /* Each client has this additional data
  */
@@ -62,13 +52,12 @@ struct as7312_54x_psu_data {
     unsigned long       last_updated;    /* In jiffies */
     u8  index;           /* PSU index */
     u8  status;          /* Status(present/power_good) register read from CPLD */
-    char model_name[14]; /* Model name, read from eeprom */
+    char model_name[9]; /* Model name, read from eeprom */
 };
 
 static struct as7312_54x_psu_data *as7312_54x_psu_update_device(struct device *dev);
 
 enum as7312_54x_psu_sysfs_attributes {
-    PSU_INDEX,
     PSU_PRESENT,
     PSU_MODEL_NAME,
     PSU_POWER_GOOD
@@ -76,65 +65,38 @@ enum as7312_54x_psu_sysfs_attributes {
 
 /* sysfs attributes for hwmon
  */
-static SENSOR_DEVICE_ATTR(psu_index,      S_IRUGO, show_index,     NULL, PSU_INDEX);
 static SENSOR_DEVICE_ATTR(psu_present,    S_IRUGO, show_status,    NULL, PSU_PRESENT);
 static SENSOR_DEVICE_ATTR(psu_model_name, S_IRUGO, show_model_name,NULL, PSU_MODEL_NAME);
 static SENSOR_DEVICE_ATTR(psu_power_good, S_IRUGO, show_status,    NULL, PSU_POWER_GOOD);
 
 static struct attribute *as7312_54x_psu_attributes[] = {
-    &sensor_dev_attr_psu_index.dev_attr.attr,
     &sensor_dev_attr_psu_present.dev_attr.attr,
     &sensor_dev_attr_psu_model_name.dev_attr.attr,
     &sensor_dev_attr_psu_power_good.dev_attr.attr,
     NULL
 };
 
-static ssize_t show_index(struct device *dev, struct device_attribute *da,
-             char *buf)
-{
-    struct i2c_client *client = to_i2c_client(dev);
-    struct as7312_54x_psu_data *data = i2c_get_clientdata(client);
-
-    return sprintf(buf, "%d\n", data->index);
-}
-
 static ssize_t show_status(struct device *dev, struct device_attribute *da,
-             char *buf)
+                           char *buf)
 {
     struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
     struct as7312_54x_psu_data *data = as7312_54x_psu_update_device(dev);
     u8 status = 0;
 
-    if (!data->valid) {
-        return sprintf(buf, "0\n");
-    }
-
     if (attr->index == PSU_PRESENT) {
-        status = IS_PRESENT(data->index, data->status);
+        status = !(data->status >> (1-data->index) & 0x1);
     }
     else { /* PSU_POWER_GOOD */
-        status = IS_POWER_GOOD(data->index, data->status);
+        status = (data->status >> (3-data->index) & 0x1);
     }
 
     return sprintf(buf, "%d\n", status);
 }
 
 static ssize_t show_model_name(struct device *dev, struct device_attribute *da,
-             char *buf)
+                               char *buf)
 {
     struct as7312_54x_psu_data *data = as7312_54x_psu_update_device(dev);
-
-    if (!data->valid) {
-        return 0;
-    }
-
-    if (!IS_PRESENT(data->index, data->status)) {
-        return 0;
-    }
-
-    if (as7312_54x_psu_model_name_get(dev) < 0) {
-        return -ENXIO;
-    }
 
     return sprintf(buf, "%s\n", data->model_name);
 }
@@ -144,7 +106,7 @@ static const struct attribute_group as7312_54x_psu_group = {
 };
 
 static int as7312_54x_psu_probe(struct i2c_client *client,
-            const struct i2c_device_id *dev_id)
+                                const struct i2c_device_id *dev_id)
 {
     struct as7312_54x_psu_data *data;
     int status;
@@ -180,7 +142,7 @@ static int as7312_54x_psu_probe(struct i2c_client *client,
     }
 
     dev_info(&client->dev, "%s: psu '%s'\n",
-         dev_name(data->hwmon_dev), client->name);
+             dev_name(data->hwmon_dev), client->name);
 
     return 0;
 
@@ -204,9 +166,9 @@ static int as7312_54x_psu_remove(struct i2c_client *client)
     return 0;
 }
 
-enum psu_index 
-{ 
-    as7312_54x_psu1, 
+enum psu_index
+{
+    as7312_54x_psu1,
     as7312_54x_psu2
 };
 
@@ -229,91 +191,32 @@ static struct i2c_driver as7312_54x_psu_driver = {
 };
 
 static int as7312_54x_psu_read_block(struct i2c_client *client, u8 command, u8 *data,
-              int data_len)
+                                     int data_len)
 {
-    int result = i2c_smbus_read_i2c_block_data(client, command, data_len, data);
+    int result = 0;
+    int retry_count = 5;
 
-    if (unlikely(result < 0))
-        goto abort;
-    if (unlikely(result != data_len)) {
-        result = -EIO;
-        goto abort;
+    while (retry_count) {
+        retry_count--;
+
+        result = i2c_smbus_read_i2c_block_data(client, command, data_len, data);
+
+        if (unlikely(result < 0)) {
+            msleep(10);
+            continue;
+        }
+
+        if (unlikely(result != data_len)) {
+            result = -EIO;
+            msleep(10);
+            continue;
+        }
+
+        result = 0;
+        break;
     }
 
-    result = 0;
-
-abort:
     return result;
-}
-
-enum psu_type {
-    PSU_YM_2401_JCR,    /* AC110V - F2B */
-    PSU_YM_2401_JDR,    /* AC110V - B2F */
-    PSU_CPR_4011_4M11,  /* AC110V - F2B */
-    PSU_CPR_4011_4M21,  /* AC110V - B2F */
-    PSU_CPR_6011_2M11,  /* AC110V - F2B */
-    PSU_CPR_6011_2M21,  /* AC110V - B2F */
-    PSU_UM400D_01G,     /* DC48V  - F2B */
-    PSU_UM400D01_01G    /* DC48V  - B2F */
-};
-
-struct model_name_info {
-    enum psu_type type;
-    u8 offset;
-    u8 length;
-    char* model_name;
-};
-
-struct model_name_info models[] = {
-{PSU_YM_2401_JCR,   0x20, 11, "YM-2401JCR"},
-{PSU_YM_2401_JDR,   0x20, 11, "YM-2401JDR"},
-{PSU_CPR_4011_4M11, 0x26, 13, "CPR-4011-4M11"},
-{PSU_CPR_4011_4M21, 0x26, 13, "CPR-4011-4M21"},
-{PSU_CPR_6011_2M11, 0x26, 13, "CPR-6011-2M11"},
-{PSU_CPR_6011_2M21, 0x26, 13, "CPR-6011-2M21"},
-{PSU_UM400D_01G,    0x50,  9, "um400d01G"},
-{PSU_UM400D01_01G,  0x50, 12, "um400d01-01G"},
-};
-
-static int as7312_54x_psu_model_name_get(struct device *dev)
-{
-    struct i2c_client *client = to_i2c_client(dev);
-    struct as7312_54x_psu_data *data = i2c_get_clientdata(client);
-    int i, status;
-
-    for (i = 0; i < ARRAY_SIZE(models); i++) {
-        memset(data->model_name, 0, sizeof(data->model_name));
-
-        status = as7312_54x_psu_read_block(client, models[i].offset,
-                                           data->model_name, models[i].length);
-        if (status < 0) {
-            data->model_name[0] = '\0';
-            dev_dbg(&client->dev, "unable to read model name from (0x%x) offset(0x%x)\n", 
-                                  client->addr, models[i].offset);
-            return status;
-        }
-        else {
-            data->model_name[models[i].length] = '\0';
-        }
-
-        if (i == PSU_YM_2401_JCR || i == PSU_YM_2401_JDR) {
-            /* Skip the meaningless data byte 8*/
-            data->model_name[8] = data->model_name[9];
-            data->model_name[9] = data->model_name[10];
-            data->model_name[10] = '\0';
-        }
-
-        /* Determine if the model name is known, if not, read next index
-         */
-        if (strncmp(data->model_name, models[i].model_name, models[i].length) == 0) {
-            return 0;
-        }
-        else {
-            data->model_name[0] = '\0';
-        }
-    }
-
-    return -ENODATA;
 }
 
 static struct as7312_54x_psu_data *as7312_54x_psu_update_device(struct device *dev)
@@ -324,29 +227,43 @@ static struct as7312_54x_psu_data *as7312_54x_psu_update_device(struct device *d
     mutex_lock(&data->update_lock);
 
     if (time_after(jiffies, data->last_updated + HZ + HZ / 2)
-        || !data->valid) {
-        int status = -1;
+            || !data->valid) {
+        int status;
+        int power_good = 0;
 
         dev_dbg(&client->dev, "Starting as7312_54x update\n");
-        data->valid = 0;
-
 
         /* Read psu status */
-        status = as7312_54x_i2c_cpld_read(PSU_STATUS_I2C_ADDR, PSU_STATUS_I2C_REG_OFFSET);
+        status = as7312_54x_i2c_cpld_read(0x60, 0x2);
 
         if (status < 0) {
-            dev_dbg(&client->dev, "cpld reg (0x%x) err %d\n", PSU_STATUS_I2C_ADDR, status);
-            goto exit;
+            dev_dbg(&client->dev, "cpld reg 0x60 err %d\n", status);
         }
         else {
             data->status = status;
+        }
+
+        /* Read model name */
+        memset(data->model_name, 0, sizeof(data->model_name));
+        power_good = (data->status >> (3-data->index) & 0x1);
+
+        if (power_good) {
+            status = as7312_54x_psu_read_block(client, 0x20, data->model_name,
+                                               ARRAY_SIZE(data->model_name)-1);
+
+            if (status < 0) {
+                data->model_name[0] = '\0';
+                dev_dbg(&client->dev, "unable to read model name from (0x%x)\n", client->addr);
+            }
+            else {
+                data->model_name[ARRAY_SIZE(data->model_name)-1] = '\0';
+            }
         }
 
         data->last_updated = jiffies;
         data->valid = 1;
     }
 
-exit:
     mutex_unlock(&data->update_lock);
 
     return data;
@@ -355,9 +272,10 @@ exit:
 static int __init as7312_54x_psu_init(void)
 {
     extern int platform_accton_as7312_54x(void);
-    if(!platform_accton_as7312_54x()) {
+    if (!platform_accton_as7312_54x()) {
         return -ENODEV;
     }
+
     return i2c_add_driver(&as7312_54x_psu_driver);
 }
 
@@ -366,10 +284,10 @@ static void __exit as7312_54x_psu_exit(void)
     i2c_del_driver(&as7312_54x_psu_driver);
 }
 
-MODULE_AUTHOR("Brandon Chuang <brandon_chuang@accton.com.tw>");
-MODULE_DESCRIPTION("accton as7312_54x_psu driver");
-MODULE_LICENSE("GPL");
-
 module_init(as7312_54x_psu_init);
 module_exit(as7312_54x_psu_exit);
+
+MODULE_AUTHOR("Brandon Chuang <brandon_chuang@accton.com.tw>");
+MODULE_DESCRIPTION("as7312_54x_psu driver");
+MODULE_LICENSE("GPL");
 
