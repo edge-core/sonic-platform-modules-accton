@@ -134,8 +134,8 @@ static ssize_t sfp_set_tx_disable(struct device *dev, struct device_attribute *d
 static ssize_t qsfp_set_tx_disable(struct device *dev, struct device_attribute *da, const char *buf, size_t count);;
 static ssize_t sfp_eeprom_read(struct i2c_client *, u8, u8 *,int);
 static ssize_t sfp_eeprom_write(struct i2c_client *, u8 , const char *,int);
-extern int as7312_54x_i2c_cpld_read(unsigned short cpld_addr, u8 reg);
-extern int as7312_54x_i2c_cpld_write(unsigned short cpld_addr, u8 reg, u8 value);
+extern int accton_i2c_cpld_read(unsigned short cpld_addr, u8 reg);
+extern int accton_i2c_cpld_write(unsigned short cpld_addr, u8 reg, u8 value);
 enum sfp_sysfs_attributes {
     PRESENT,
     PRESENT_ALL,
@@ -386,7 +386,7 @@ static struct sfp_port_data *sfp_update_present(struct i2c_client *client)
         for (j = 0; j < 3; j++) {
             cpld_addr 	= I2C_ADDR_CPLD2 + i*2;
             reg	   		= 0x9+j;
-            status		= as7312_54x_i2c_cpld_read(cpld_addr, reg);
+            status		= accton_i2c_cpld_read(cpld_addr, reg);
 
             if (unlikely(status < 0)) {
                 dev_dbg(&client->dev, "cpld(0x%x) reg(0x%x) err %d\n", cpld_addr, reg, status);
@@ -401,7 +401,7 @@ static struct sfp_port_data *sfp_update_present(struct i2c_client *client)
     /* Read present status of port 49-52(QSFP port) */
     cpld_addr = I2C_ADDR_CPLD2;
     reg 	  = 0x18;
-    status 	  = as7312_54x_i2c_cpld_read(cpld_addr, reg);
+    status 	  = accton_i2c_cpld_read(cpld_addr, reg);
 
     if (unlikely(status < 0)) {
         dev_dbg(&client->dev, "cpld(0x%x) reg(0x%x) err %d\n", cpld_addr, reg, status);
@@ -414,7 +414,7 @@ static struct sfp_port_data *sfp_update_present(struct i2c_client *client)
     /* Read present status of port 53-54(QSFP port) */
     cpld_addr = I2C_ADDR_CPLD3;
     reg 	  = 0x18;
-    status 	  = as7312_54x_i2c_cpld_read(cpld_addr, reg);
+    status 	  = accton_i2c_cpld_read(cpld_addr, reg);
 
     if (unlikely(status < 0)) {
         dev_dbg(&client->dev, "cpld(0x%x) reg(0x%x) err %d\n", cpld_addr, reg, status);
@@ -454,7 +454,7 @@ static struct sfp_port_data* sfp_update_tx_rx_status(struct device *dev)
             reg 	  = 0xc+j;
             cpld_addr = I2C_ADDR_CPLD2 + i*2;
 
-            status	= as7312_54x_i2c_cpld_read(cpld_addr, reg);
+            status	= accton_i2c_cpld_read(cpld_addr, reg);
             if (unlikely(status < 0)) {
                 dev_dbg(&client->dev, "cpld(0x%x) reg(0x%x) err %d\n", cpld_addr, reg, status);
                 goto exit;
@@ -505,7 +505,7 @@ static ssize_t sfp_set_tx_disable(struct device *dev, struct device_attribute *d
     }
 
     /* Read current status */
-    cpld_val = as7312_54x_i2c_cpld_read(cpld_addr, cpld_reg);
+    cpld_val = accton_i2c_cpld_read(cpld_addr, cpld_reg);
 
     /* Update tx_disable status */
     if (disable) {
@@ -517,7 +517,7 @@ static ssize_t sfp_set_tx_disable(struct device *dev, struct device_attribute *d
         cpld_val &= ~cpld_bit;
     }
 
-    as7312_54x_i2c_cpld_write(cpld_addr, cpld_reg, cpld_val);
+    accton_i2c_cpld_write(cpld_addr, cpld_reg, cpld_val);
     mutex_unlock(&data->update_lock);
     return count;
 }
