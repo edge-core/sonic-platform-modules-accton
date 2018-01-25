@@ -49,8 +49,8 @@ args = []
 ALL_DEVICE = {}               
 DEVICE_NO = {'led':5, 'fan':6,'thermal':4, 'psu':2, 'sfp':54}
 FORCE = 0
-logging.basicConfig(filename= PROJECT_NAME+'.log', filemode='w',level=logging.DEBUG)
-logging.basicConfig(level=logging.INFO)
+#logging.basicConfig(filename= PROJECT_NAME+'.log', filemode='w',level=logging.DEBUG)
+#logging.basicConfig(level=logging.INFO)
 
 
 if DEBUG == True:
@@ -236,22 +236,45 @@ mknod =[
 'echo accton_i2c_cpld 0x62 > /sys/bus/i2c/devices/i2c-5/new_device',
 'echo accton_i2c_cpld 0x64 > /sys/bus/i2c/devices/i2c-6/new_device']
 
-mknod2 =[ ]
-       
+mknod2 =[
+'echo pca9548 0x76 > /sys/bus/i2c/devices/i2c-1/new_device',
+'echo pca9548 0x71 > /sys/bus/i2c/devices/i2c-0/new_device' ,
+'echo pca9548 0x72 > /sys/bus/i2c/devices/i2c-0/new_device' ,
+'echo pca9548 0x73 > /sys/bus/i2c/devices/i2c-0/new_device' ,
+'echo pca9548 0x74 > /sys/bus/i2c/devices/i2c-0/new_device',
+'echo pca9548 0x75 > /sys/bus/i2c/devices/i2c-0/new_device',
+'echo pca9548 0x76 > /sys/bus/i2c/devices/i2c-0/new_device',
+'echo pca9548 0x77 > /sys/bus/i2c/devices/i2c-0/new_device',
+'echo pca9548 0x70 > /sys/bus/i2c/devices/i2c-0/new_device',
+'echo 24c02 0x57 > /sys/bus/i2c/devices/i2c-0/new_device',
+
+'echo as7312_54x_fan 0x66 > /sys/bus/i2c/devices/i2c-2/new_device ',
+'echo lm75 0x48 > /sys/bus/i2c/devices/i2c-3/new_device',
+'echo lm75 0x49 > /sys/bus/i2c/devices/i2c-3/new_device',
+'echo lm75 0x4a > /sys/bus/i2c/devices/i2c-3/new_device',
+'echo lm75 0x4b > /sys/bus/i2c/devices/i2c-3/new_device',
+'echo as7312_54x_psu1 0x51 > /sys/bus/i2c/devices/i2c-10/new_device',
+'echo ym2651 0x59 > /sys/bus/i2c/devices/i2c-10/new_device',
+'echo as7312_54x_psu2 0x53 > /sys/bus/i2c/devices/i2c-11/new_device',
+'echo ym2651 0x5b > /sys/bus/i2c/devices/i2c-11/new_device',
+'echo accton_i2c_cpld 0x60 > /sys/bus/i2c/devices/i2c-4/new_device',
+'echo accton_i2c_cpld 0x62 > /sys/bus/i2c/devices/i2c-5/new_device',
+'echo accton_i2c_cpld 0x64 > /sys/bus/i2c/devices/i2c-6/new_device']
+
+      
        
 def i2c_order_check():    
     # i2c bus 0 and 1 might be installed in different order.
-    # Here check if 0x76 is exist @ i2c-0
-    #tmp = "echo pca9548 0x76 > /sys/bus/i2c/devices/i2c-0/new_device"
-    #status, output = log_os_system(tmp, 0)
-    #if not device_exist():
-    #    order = 1
-    #else:
-    #    order = 0
-    #tmp = "echo 0x76 > /sys/bus/i2c/devices/i2c-0/delete_device"       
-    #status, output = log_os_system(tmp, 0)       
-    #return order
-    return 0
+    # Here check if 0x77 is exist @ i2c-1
+    tmp = "echo pca9548 0x77 > /sys/bus/i2c/devices/i2c-1/new_device"
+    status, output = log_os_system(tmp, 0)
+    if not device_exist():
+        order = 1
+    else:
+        order = 0
+    tmp = "echo 0x77 > /sys/bus/i2c/devices/i2c-1/delete_device"       
+    status, output = log_os_system(tmp, 0)       
+    return order
                      
 def device_install():
     global FORCE
