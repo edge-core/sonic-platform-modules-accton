@@ -69,6 +69,7 @@ MODULE_DEVICE_TABLE(i2c, as7312_54x_cpld_id);
 #define TRANSCEIVER_TXDISABLE_ATTR_ID(index)   	MODULE_TXDISABLE_##index
 #define TRANSCEIVER_RXLOS_ATTR_ID(index)   		MODULE_RXLOS_##index
 #define TRANSCEIVER_TXFAULT_ATTR_ID(index)   	MODULE_TXFAULT_##index
+#define TRANSCEIVER_RESET_ATTR_ID(index)   	MODULE_RESET_##index
 
 enum as7312_54x_cpld1_sysfs_attributes {
 	CPLD_VERSION,
@@ -130,6 +131,12 @@ enum as7312_54x_cpld1_sysfs_attributes {
 	TRANSCEIVER_PRESENT_ATTR_ID(52),
 	TRANSCEIVER_PRESENT_ATTR_ID(53),
 	TRANSCEIVER_PRESENT_ATTR_ID(54),
+	TRANSCEIVER_RESET_ATTR_ID(49),
+	TRANSCEIVER_RESET_ATTR_ID(50),
+	TRANSCEIVER_RESET_ATTR_ID(51),
+	TRANSCEIVER_RESET_ATTR_ID(52),
+	TRANSCEIVER_RESET_ATTR_ID(53),
+	TRANSCEIVER_RESET_ATTR_ID(54),
 	TRANSCEIVER_TXDISABLE_ATTR_ID(1),
 	TRANSCEIVER_TXDISABLE_ATTR_ID(2),
 	TRANSCEIVER_TXDISABLE_ATTR_ID(3),
@@ -284,6 +291,8 @@ static ssize_t show_present_all(struct device *dev, struct device_attribute *da,
              char *buf);
 static ssize_t show_rxlos_all(struct device *dev, struct device_attribute *da,
              char *buf);
+static ssize_t set_reset(struct device *dev, struct device_attribute *da,
+			const char *buf, size_t count);
 static ssize_t set_tx_disable(struct device *dev, struct device_attribute *da,
 			const char *buf, size_t count);
 static ssize_t access(struct device *dev, struct device_attribute *da,
@@ -297,6 +306,10 @@ static int as7312_54x_cpld_write_internal(struct i2c_client *client, u8 reg, u8 
 #define DECLARE_TRANSCEIVER_PRESENT_SENSOR_DEVICE_ATTR(index) \
 	static SENSOR_DEVICE_ATTR(module_present_##index, S_IRUGO, show_status, NULL, MODULE_PRESENT_##index)
 #define DECLARE_TRANSCEIVER_PRESENT_ATTR(index)  &sensor_dev_attr_module_present_##index.dev_attr.attr
+
+#define DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(index) \
+	static SENSOR_DEVICE_ATTR(module_reset_##index, S_IRUGO | S_IWUSR, show_status, set_reset, MODULE_RESET_##index)
+#define DECLARE_TRANSCEIVER_RESET_ATTR(index)  &sensor_dev_attr_module_reset_##index.dev_attr.attr
 
 #define DECLARE_SFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(index) \
 	static SENSOR_DEVICE_ATTR(module_tx_disable_##index, S_IRUGO | S_IWUSR, show_status, set_tx_disable, MODULE_TXDISABLE_##index); \
@@ -366,6 +379,13 @@ DECLARE_TRANSCEIVER_PRESENT_SENSOR_DEVICE_ATTR(51);
 DECLARE_TRANSCEIVER_PRESENT_SENSOR_DEVICE_ATTR(52);
 DECLARE_TRANSCEIVER_PRESENT_SENSOR_DEVICE_ATTR(53);
 DECLARE_TRANSCEIVER_PRESENT_SENSOR_DEVICE_ATTR(54);
+
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(49);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(50);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(51);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(52);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(53);
+DECLARE_TRANSCEIVER_RESET_SENSOR_DEVICE_ATTR(54);
 
 DECLARE_SFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(1);
 DECLARE_SFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(2);
@@ -460,6 +480,10 @@ static struct attribute *as7312_54x_cpld2_attributes[] = {
 	DECLARE_TRANSCEIVER_PRESENT_ATTR(50),
 	DECLARE_TRANSCEIVER_PRESENT_ATTR(51),
 	DECLARE_TRANSCEIVER_PRESENT_ATTR(52),
+	DECLARE_TRANSCEIVER_RESET_ATTR(49),
+	DECLARE_TRANSCEIVER_RESET_ATTR(50),
+	DECLARE_TRANSCEIVER_RESET_ATTR(51),
+	DECLARE_TRANSCEIVER_RESET_ATTR(52),
 	DECLARE_SFP_TRANSCEIVER_ATTR(1),
 	DECLARE_SFP_TRANSCEIVER_ATTR(2),
 	DECLARE_SFP_TRANSCEIVER_ATTR(3),
@@ -523,6 +547,8 @@ static struct attribute *as7312_54x_cpld3_attributes[] = {
 	DECLARE_TRANSCEIVER_PRESENT_ATTR(48),
 	DECLARE_TRANSCEIVER_PRESENT_ATTR(53),
 	DECLARE_TRANSCEIVER_PRESENT_ATTR(54),
+	DECLARE_TRANSCEIVER_RESET_ATTR(53),
+	DECLARE_TRANSCEIVER_RESET_ATTR(54),
 	DECLARE_SFP_TRANSCEIVER_ATTR(25),
 	DECLARE_SFP_TRANSCEIVER_ATTR(26),
 	DECLARE_SFP_TRANSCEIVER_ATTR(27),
@@ -682,6 +708,12 @@ static ssize_t show_status(struct device *dev, struct device_attribute *da,
         reg  = 0x18;
         mask = 0x2;
         break;
+
+    case MODULE_RESET_49 ... MODULE_RESET_54:
+        reg  = 0x17;
+        mask = 1 << ((attr->index - MODULE_PRESENT_49)%4);
+        break;
+
 	case MODULE_TXFAULT_1 ... MODULE_TXFAULT_8:
 		reg  = 0xC;
 		mask = 0x1 << (attr->index - MODULE_TXFAULT_1);
@@ -775,6 +807,60 @@ exit:
 	mutex_unlock(&data->update_lock);
 	return status;
 }
+
+static ssize_t set_reset(struct device *dev, struct device_attribute *da,
+			const char *buf, size_t count)
+{
+    struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
+	struct i2c_client *client = to_i2c_client(dev);
+	struct as7312_54x_cpld_data *data = i2c_get_clientdata(client);
+	long reset;
+	int status;
+    u8 reg = 0, mask = 0;
+
+	status = kstrtol(buf, 10, &reset);
+	if (status) {
+		return status;
+	}
+
+	switch (attr->index) {
+        case MODULE_RESET_49 ... MODULE_RESET_54:
+            reg  = 0x17;
+            mask = 1 << ((attr->index - MODULE_RESET_49)%4);
+            break;
+	default:
+		return 0;
+	}
+
+    /* Read current status */
+    mutex_lock(&data->update_lock);
+	status = as7312_54x_cpld_read_internal(client, reg);
+	if (unlikely(status < 0)) {
+		goto exit;
+	}
+
+	/* Update reset status */
+	if (reset) {
+		status |= mask;
+	}
+	else {
+		status &= ~mask;
+	}
+        status = as7312_54x_cpld_write_internal(client, reg, status);
+	if (unlikely(status < 0)) {
+		goto exit;
+	}
+    
+    mutex_unlock(&data->update_lock);
+    return count;
+
+exit:
+	mutex_unlock(&data->update_lock);
+	return status;
+}
+
+
+
 
 static ssize_t set_tx_disable(struct device *dev, struct device_attribute *da,
 			const char *buf, size_t count)

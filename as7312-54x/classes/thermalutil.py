@@ -19,7 +19,8 @@
 # HISTORY:
 #    mm/dd/yyyy (A.D.)
 #    11/13/2017: Polly Hsu, Create
-#
+#    1/10/2018:Jostar modify for as7716_32x
+#    2/27/2018: Roy Lee modify for as7312_54x
 # ------------------------------------------------------------------
 
 try:
@@ -47,9 +48,9 @@ class ThermalUtil(object):
     _thermal_to_device_path_mapping = {}
 
     _thermal_to_device_node_mapping = {
-            THERMAL_NUM_1_IDX: ['61', '48'],
-            THERMAL_NUM_2_IDX: ['62', '49'],
-            THERMAL_NUM_3_IDX: ['63', '4a'],
+            THERMAL_NUM_1_IDX: ['3', '48'],
+            THERMAL_NUM_2_IDX: ['3', '49'],
+            THERMAL_NUM_3_IDX: ['3', '4a'],
            }
 
     def __init__(self):
@@ -59,7 +60,7 @@ class ThermalUtil(object):
             self._thermal_to_device_path_mapping[x] = thermal_path.format(
                 self._thermal_to_device_node_mapping[x][0],
                 self._thermal_to_device_node_mapping[x][1])
-
+            
     def _get_thermal_node_val(self, thermal_num):
         if thermal_num < self.THERMAL_NUM_1_IDX or thermal_num > self.THERMAL_NUM_ON_MAIN_BROAD:
             logging.debug('GET. Parameter error. thermal_num, %d', thermal_num)
@@ -84,7 +85,7 @@ class ThermalUtil(object):
         except:
             logging.debug('GET. unable to close file. device_path:%s', device_path)
             return None
-
+      
         return int(content)
 
 
@@ -103,11 +104,13 @@ class ThermalUtil(object):
     def get_thermal_to_device_path(self, thermal_num):
         return self._thermal_to_device_path_mapping[thermal_num]
 
-    def get_thermal_1_val(self):
+    def get_thermal_1_val(self):      
         return self._get_thermal_node_val(self.THERMAL_NUM_1_IDX)
 
     def get_thermal_2_val(self):
         return self._get_thermal_node_val(self.THERMAL_NUM_2_IDX)
+    def get_thermal_temp(self):
+        return (self._get_thermal_node_val(self.THERMAL_NUM_1_IDX) + self._get_thermal_node_val(self.THERMAL_NUM_2_IDX) +self._get_thermal_node_val(self.THERMAL_NUM_3_IDX))
 
 #def main():
 #    thermal = ThermalUtil()
