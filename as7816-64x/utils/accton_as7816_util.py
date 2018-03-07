@@ -229,10 +229,10 @@ mknod =[
 'echo lm75  0x4b > /sys/bus/i2c/devices/i2c-18/new_device',
 'echo lm75  0x4d > /sys/bus/i2c/devices/i2c-17/new_device',
 'echo lm75  0x4e > /sys/bus/i2c/devices/i2c-17/new_device',
-'echo accton_i2c_cpld  0x60 > /sys/bus/i2c/devices/i2c-19/new_device',
-'echo accton_i2c_cpld  0x62 > /sys/bus/i2c/devices/i2c-20/new_device',
-'echo accton_i2c_cpld  0x64 > /sys/bus/i2c/devices/i2c-21/new_device',
-'echo accton_i2c_cpld  0x66 > /sys/bus/i2c/devices/i2c-22/new_device']
+'echo cpld_as7816  0x60 > /sys/bus/i2c/devices/i2c-19/new_device',
+'echo cpld_plain  0x62 > /sys/bus/i2c/devices/i2c-20/new_device',
+'echo cpld_plain  0x64 > /sys/bus/i2c/devices/i2c-21/new_device',
+'echo cpld_plain  0x66 > /sys/bus/i2c/devices/i2c-22/new_device']
        
 def i2c_order_check():    
     return 0
