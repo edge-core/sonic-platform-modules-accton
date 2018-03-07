@@ -125,7 +125,7 @@ static ssize_t qsfp_show_tx_rx_status(struct device *dev, struct device_attribut
 static ssize_t qsfp_set_tx_disable(struct device *dev, struct device_attribute *da, const char *buf, size_t count);;
 static ssize_t sfp_eeprom_read(struct i2c_client *, u8, u8 *,int);
 static ssize_t sfp_eeprom_write(struct i2c_client *, u8 , const char *,int);
-extern int accton_i2c_cpld_read (unsigned short cpld_addr, u8 reg);
+extern int accton_i2c_cpld_read (u8 cpld_addr, u8 reg);
 
 enum sfp_sysfs_attributes {
 	PRESENT,

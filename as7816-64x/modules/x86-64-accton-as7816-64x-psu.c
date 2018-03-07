@@ -42,7 +42,7 @@
 
 static ssize_t show_status(struct device *dev, struct device_attribute *da, char *buf);
 static struct as7816_64x_psu_data *as7816_64x_psu_update_device(struct device *dev);
-extern int accton_i2c_cpld_read (unsigned short cpld_addr, u8 reg);
+extern int accton_i2c_cpld_read (u8 cpld_addr, u8 reg);
 
 /* Addresses scanned 
  */

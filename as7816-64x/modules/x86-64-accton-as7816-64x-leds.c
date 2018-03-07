@@ -30,7 +30,7 @@
 #include <linux/slab.h>
 #include <linux/dmi.h>
 
-extern int accton_i2c_cpld_read (unsigned short cpld_addr, u8 reg);
+extern int accton_i2c_cpld_read (u8 cpld_addr, u8 reg);
 extern int accton_i2c_cpld_write(unsigned short cpld_addr, u8 reg, u8 value);
 
 extern void led_classdev_unregister(struct led_classdev *led_cdev);
