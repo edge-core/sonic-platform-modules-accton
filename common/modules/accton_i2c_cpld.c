@@ -204,7 +204,7 @@ struct attrs as7712_port[] = {
 
 struct attrs as7816_port[] = {
     {0x70, true, &portly_attrs[SFP_PRESENT]},
-    {0x04, true, &portly_attrs[SFP_RESET]},
+    {0x40, true, &portly_attrs[SFP_RESET]},
 };
 
 struct attrs *as7712_cmn_list[] = {
