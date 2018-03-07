@@ -38,6 +38,12 @@
  */
 static const unsigned short normal_i2c[] = { 0x58, 0x5b, I2C_CLIENT_END };
 
+enum chips {
+	YM2651,
+	YM2401,
+	YM2851,
+};
+
 /* Each client has this additional data
  */
 struct ym2651y_data {
@@ -429,7 +435,9 @@ static int ym2651y_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id ym2651y_id[] = {
-    { "ym2651", 0 },
+    { "ym2651", YM2651 },
+    { "ym2401", YM2401 },
+    { "ym2851", YM2851 },
     {}
 };
 MODULE_DEVICE_TABLE(i2c, ym2651y_id);
@@ -533,6 +541,7 @@ static struct ym2651y_data *ym2651y_update_device(struct device *dev)
             {
                 dev_dbg(&client->dev, "reg %d, err %d\n",
                         regs_byte[i].reg, status);
+                *(regs_byte[i].value) = 0;
             }
             else {
                 *(regs_byte[i].value) = status;
@@ -547,6 +556,7 @@ static struct ym2651y_data *ym2651y_update_device(struct device *dev)
             {
                 dev_dbg(&client->dev, "reg %d, err %d\n",
                         regs_word[i].reg, status);
+                *(regs_word[i].value) = 0;
             }
             else {
                 *(regs_word[i].value) = status;
