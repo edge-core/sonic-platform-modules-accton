@@ -133,6 +133,8 @@ enum as7326_56x_cpld_sysfs_attributes {
 	TRANSCEIVER_PRESENT_ATTR_ID(54),
 	TRANSCEIVER_PRESENT_ATTR_ID(55),
 	TRANSCEIVER_PRESENT_ATTR_ID(56),
+	TRANSCEIVER_PRESENT_ATTR_ID(57),
+	TRANSCEIVER_PRESENT_ATTR_ID(58),
 	TRANSCEIVER_TXDISABLE_ATTR_ID(1),
 	TRANSCEIVER_TXDISABLE_ATTR_ID(2),
 	TRANSCEIVER_TXDISABLE_ATTR_ID(3),
@@ -181,6 +183,8 @@ enum as7326_56x_cpld_sysfs_attributes {
 	TRANSCEIVER_TXDISABLE_ATTR_ID(46),
 	TRANSCEIVER_TXDISABLE_ATTR_ID(47),
 	TRANSCEIVER_TXDISABLE_ATTR_ID(48),
+	TRANSCEIVER_TXDISABLE_ATTR_ID(57),
+	TRANSCEIVER_TXDISABLE_ATTR_ID(58),
 	TRANSCEIVER_RXLOS_ATTR_ID(1),
 	TRANSCEIVER_RXLOS_ATTR_ID(2),
 	TRANSCEIVER_RXLOS_ATTR_ID(3),
@@ -229,6 +233,8 @@ enum as7326_56x_cpld_sysfs_attributes {
 	TRANSCEIVER_RXLOS_ATTR_ID(46),
 	TRANSCEIVER_RXLOS_ATTR_ID(47),
 	TRANSCEIVER_RXLOS_ATTR_ID(48),
+	TRANSCEIVER_RXLOS_ATTR_ID(57),
+	TRANSCEIVER_RXLOS_ATTR_ID(58),
 	TRANSCEIVER_TXFAULT_ATTR_ID(1),
 	TRANSCEIVER_TXFAULT_ATTR_ID(2),
 	TRANSCEIVER_TXFAULT_ATTR_ID(3),
@@ -277,6 +283,8 @@ enum as7326_56x_cpld_sysfs_attributes {
 	TRANSCEIVER_TXFAULT_ATTR_ID(46),
 	TRANSCEIVER_TXFAULT_ATTR_ID(47),
 	TRANSCEIVER_TXFAULT_ATTR_ID(48),
+	TRANSCEIVER_TXFAULT_ATTR_ID(57),
+	TRANSCEIVER_TXFAULT_ATTR_ID(58),
 };
 
 /* sysfs attributes for hwmon 
@@ -375,6 +383,8 @@ DECLARE_TRANSCEIVER_PRESENT_SENSOR_DEVICE_ATTR(53);
 DECLARE_TRANSCEIVER_PRESENT_SENSOR_DEVICE_ATTR(54);
 DECLARE_TRANSCEIVER_PRESENT_SENSOR_DEVICE_ATTR(55);
 DECLARE_TRANSCEIVER_PRESENT_SENSOR_DEVICE_ATTR(56);
+DECLARE_TRANSCEIVER_PRESENT_SENSOR_DEVICE_ATTR(57);
+DECLARE_TRANSCEIVER_PRESENT_SENSOR_DEVICE_ATTR(58);
 
 DECLARE_SFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(1);
 DECLARE_SFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(2);
@@ -424,6 +434,8 @@ DECLARE_SFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(45);
 DECLARE_SFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(46);
 DECLARE_SFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(47);
 DECLARE_SFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(48);
+DECLARE_SFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(57);
+DECLARE_SFP_TRANSCEIVER_SENSOR_DEVICE_ATTR(58);
 
 static struct attribute *as7326_56x_cpld3_attributes[] = {
     &sensor_dev_attr_version.dev_attr.attr,
@@ -540,6 +552,8 @@ static struct attribute *as7326_56x_cpld1_attributes[] = {
 	DECLARE_TRANSCEIVER_PRESENT_ATTR(54),
 	DECLARE_TRANSCEIVER_PRESENT_ATTR(55),
 	DECLARE_TRANSCEIVER_PRESENT_ATTR(56),
+	DECLARE_TRANSCEIVER_PRESENT_ATTR(57),
+	DECLARE_TRANSCEIVER_PRESENT_ATTR(58),
 	DECLARE_SFP_TRANSCEIVER_ATTR(31),
 	DECLARE_SFP_TRANSCEIVER_ATTR(32),
 	DECLARE_SFP_TRANSCEIVER_ATTR(33),
@@ -558,6 +572,8 @@ static struct attribute *as7326_56x_cpld1_attributes[] = {
 	DECLARE_SFP_TRANSCEIVER_ATTR(46),
 	DECLARE_SFP_TRANSCEIVER_ATTR(47),
 	DECLARE_SFP_TRANSCEIVER_ATTR(48),
+	DECLARE_SFP_TRANSCEIVER_ATTR(57),
+	DECLARE_SFP_TRANSCEIVER_ATTR(58),
 	NULL
 };
 
@@ -653,9 +669,13 @@ static ssize_t show_status(struct device *dev, struct device_attribute *da,
 		reg  = 0x10 + (attr->index-MODULE_PRESENT_31)/8;
 		mask = 0x1 << ((attr->index - MODULE_PRESENT_31)%8);
 		break;
+	case MODULE_PRESENT_57 ... MODULE_PRESENT_58:
+		reg  = 0x12;
+		mask = 0x1 << (( MODULE_PRESENT_58 - attr->index)+2);
+		break;
 	case MODULE_PRESENT_49 ... MODULE_PRESENT_56:   /*QSFP*/
-		reg  = 0x13 + (attr->index-MODULE_PRESENT_48)/8;
-		mask = 0x1 << ((attr->index - MODULE_PRESENT_48)%8);
+		reg  = 0x13 ;
+		mask = 0x1 << ((attr->index - MODULE_PRESENT_49)%8);
 		break;
 	case MODULE_TXFAULT_1 ... MODULE_TXFAULT_30:
 		reg  = 0x03 + (attr->index - MODULE_TXFAULT_1)/8;
@@ -665,6 +685,10 @@ static ssize_t show_status(struct device *dev, struct device_attribute *da,
 		reg  = 0x1a + (attr->index-MODULE_TXFAULT_31)/8;
 		mask = 0x1 << ((attr->index - MODULE_TXFAULT_31)%8);
 		break;
+	case MODULE_TXFAULT_57 ... MODULE_TXFAULT_58:
+		reg  = 0x1c;
+		mask = 0x1 << (( attr->index - MODULE_TXFAULT_57)+2);
+		break;
 	case MODULE_TXDISABLE_1 ... MODULE_TXDISABLE_30:
 		reg  = 0x07 + (attr->index - MODULE_TXDISABLE_1)/8;
 		mask = 0x1 << ((attr->index - MODULE_TXDISABLE_1)%8);
@@ -673,6 +697,10 @@ static ssize_t show_status(struct device *dev, struct device_attribute *da,
 		reg  = 0x14 + (attr->index-MODULE_TXDISABLE_31)/8;
 		mask = 0x1 << ((attr->index - MODULE_TXDISABLE_31)%8);
 		break;
+	case MODULE_TXDISABLE_57 ... MODULE_TXDISABLE_58:
+		reg  = 0x16;
+		mask = 0x1 << ((attr->index - MODULE_TXDISABLE_57)+2);
+		break;
 	case MODULE_RXLOS_1 ... MODULE_RXLOS_30:
 		reg  = 0x0b + (attr->index - MODULE_RXLOS_1)/8;
 		mask = 0x1 << ((attr->index - MODULE_RXLOS_1)%8);
@@ -680,6 +708,10 @@ static ssize_t show_status(struct device *dev, struct device_attribute *da,
 	case MODULE_RXLOS_31 ... MODULE_RXLOS_48:
 		reg  = 0x17 + (attr->index-MODULE_RXLOS_31)/8;
 		mask = 0x1 << ((attr->index - MODULE_RXLOS_31)%8);
+		break;
+	case MODULE_RXLOS_57 ... MODULE_RXLOS_58:
+		reg  = 0x19;
+		mask = 0x1 << (( attr->index - MODULE_RXLOS_57)+2);
 		break;
 	default:
 		return 0;
@@ -724,8 +756,12 @@ static ssize_t set_tx_disable(struct device *dev, struct device_attribute *da,
 		mask = 0x1 << ((attr->index - MODULE_TXDISABLE_1)%8);
 		break;
 	case MODULE_TXDISABLE_31 ... MODULE_TXDISABLE_48:
-		reg  = 0x14 + (attr->index-MODULE_TXDISABLE_31)/8;
+		reg  = 0x14 + (attr->index - MODULE_TXDISABLE_31)/8;
 		mask = 0x1 << ((attr->index - MODULE_TXDISABLE_31)%8);
+		break;
+	case MODULE_TXDISABLE_57 ... MODULE_TXDISABLE_58:
+		reg  = 0x16;
+		mask = 0x1 << ((attr->index - MODULE_TXDISABLE_57)+2);
 		break;
 	default:
 		return 0;
@@ -746,7 +782,7 @@ static ssize_t set_tx_disable(struct device *dev, struct device_attribute *da,
 		status &= ~mask;
 	}
 
-    status = as7326_56x_cpld_write_internal(client, reg, status);
+        status = as7326_56x_cpld_write_internal(client, reg, status);
 	if (unlikely(status < 0)) {
 		goto exit;
 	}
