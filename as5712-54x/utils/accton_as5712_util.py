@@ -96,13 +96,11 @@ mknod =[
 'echo as5712_54x_psu1 0x38 > /sys/bus/i2c/devices/i2c-57/new_device',
 'echo cpr_4011_4mxx  0x3c > /sys/bus/i2c/devices/i2c-57/new_device',
 'echo as5712_54x_psu1 0x50 > /sys/bus/i2c/devices/i2c-57/new_device',
-'echo ym2401 0x58 > /sys/bus/i2c/devices/i2c-57/new_device',
 
 # PSU-2
 'echo as5712_54x_psu2 0x3b > /sys/bus/i2c/devices/i2c-58/new_device',
 'echo cpr_4011_4mxx 0x3f > /sys/bus/i2c/devices/i2c-58/new_device',
 'echo as5712_54x_psu2 0x53 > /sys/bus/i2c/devices/i2c-58/new_device',
-'echo ym2401 0x5b > /sys/bus/i2c/devices/i2c-58/new_device',
 
 'echo lm75 0x48 > /sys/bus/i2c/devices/i2c-61/new_device',
 'echo lm75 0x49 > /sys/bus/i2c/devices/i2c-62/new_device',
@@ -122,13 +120,11 @@ mknod2 =[
 'echo as5712_54x_psu1 0x38 > /sys/bus/i2c/devices/i2c-57/new_device',
 'echo cpr_4011_4mxx  0x3c > /sys/bus/i2c/devices/i2c-57/new_device',
 'echo as5712_54x_psu1 0x50 > /sys/bus/i2c/devices/i2c-57/new_device',
-'echo ym2401 0x58 > /sys/bus/i2c/devices/i2c-57/new_device',
 
 # PSU-2
 'echo as5712_54x_psu2 0x3b > /sys/bus/i2c/devices/i2c-58/new_device',
 'echo cpr_4011_4mxx 0x3f > /sys/bus/i2c/devices/i2c-58/new_device',
 'echo as5712_54x_psu2 0x53 > /sys/bus/i2c/devices/i2c-58/new_device',
-'echo ym2401 0x5b > /sys/bus/i2c/devices/i2c-58/new_device',
 
 'echo lm75 0x48 > /sys/bus/i2c/devices/i2c-61/new_device',
 'echo lm75 0x49 > /sys/bus/i2c/devices/i2c-62/new_device',
@@ -250,11 +246,11 @@ kos = [
 'depmod -ae',
 'modprobe i2c_dev',
 'modprobe i2c_mux_pca954x',
+'modprobe optoe',
 'modprobe i2c-mux-accton_as5712_54x_cpld',
 'modprobe cpr_4011_4mxx',
 'modprobe ym2651y',
 'modprobe accton_as5712_54x_fan',
-'modprobe accton_as5712_54x_sfp',
 'modprobe leds-accton_as5712_54x',
 'modprobe accton_as5712_54x_psu']
 
@@ -282,7 +278,7 @@ def driver_uninstall():
 
 def i2c_order_check():
     # i2c bus 0 and 1 might be installed in different order.
-    # Here check if 0x76 is exist @ i2c-0
+    # Here check if 0x70 is exist @ i2c-0
     tmp = "echo pca9548 0x70 > /sys/bus/i2c/devices/i2c-1/new_device"
     status, output = log_os_system(tmp, 0)
     if not device_exist():
@@ -320,12 +316,19 @@ def device_install():
                 print output
                 if FORCE == 0:
                     return status
+         
     for i in range(0,len(sfp_map)):
-        status, output =log_os_system("echo as5712_54x_sfp"+str(i+1)+" 0x50 > /sys/bus/i2c/devices/i2c-"+str(sfp_map[i])+"/new_device", 1)
+        status, output =log_os_system("echo optoe1 0x50 > /sys/bus/i2c/devices/i2c-"+str(sfp_map[i])+"/new_device", 1)
         if status:
             print output
             if FORCE == 0:
                 return status
+        status, output =log_os_system("echo port"+str(i)+" > /sys/bus/i2c/devices/"+str(sfp_map[i])+"-0050/port_name", 1)
+        if status:
+            print output
+            if FORCE == 0:
+                return status
+   
     return
 
 def device_uninstall():
