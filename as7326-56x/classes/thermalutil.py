@@ -20,7 +20,7 @@
 #    mm/dd/yyyy (A.D.)
 #    11/13/2017: Polly Hsu, Create
 #    1/10/2018:Jostar modify for as7716_32x
-#    2/27/2018: Roy Lee modify for as7326_56x
+#    3/23/2018: Roy Lee modify for as7326_56x
 # ------------------------------------------------------------------
 
 try:
@@ -48,9 +48,9 @@ class ThermalUtil(object):
     _thermal_to_device_path_mapping = {}
 
     _thermal_to_device_node_mapping = {
-            THERMAL_NUM_1_IDX: ['3', '48'],
-            THERMAL_NUM_2_IDX: ['3', '49'],
-            THERMAL_NUM_3_IDX: ['3', '4a'],
+            THERMAL_NUM_1_IDX: ['15', '48'],
+            THERMAL_NUM_2_IDX: ['15', '49'],
+            THERMAL_NUM_3_IDX: ['15', '4a'],
            }
 
     def __init__(self):

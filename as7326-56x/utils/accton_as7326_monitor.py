@@ -20,7 +20,7 @@
 #    mm/dd/yyyy (A.D.)
 #    11/13/2017: Polly Hsu, Create
 #    1/10/2018: Jostar modify for as7716_32
-#    2/27/2018: Roy Lee modify for as7326_56x
+#    3/23/2018: Roy Lee modify for as7326_56x
 # ------------------------------------------------------------------
 
 try:

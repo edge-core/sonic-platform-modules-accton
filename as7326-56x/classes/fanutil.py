@@ -20,7 +20,7 @@
 #    mm/dd/yyyy (A.D.)
 #    11/13/2017: Polly Hsu, Create
 #    1/10/2018: Jostar modify for as7716_32
-#    2/27/2018: Roy Lee modify for as7326_56x
+#    3/32/2018: Roy Lee modify for as7326_56x
 # ------------------------------------------------------------------
 
 try:
@@ -49,9 +49,8 @@ class FanUtil(object):
     #FAN_NODE_DUTY_IDX_OF_MAP = 4
     #FANR_NODE_FAULT_IDX_OF_MAP = 5
 
-    #BASE_VAL_PATH = '/sys/devices/platform/as5712_56x_fan/{0}'
-    BASE_VAL_PATH = '/sys/bus/i2c/devices/2-0066/{0}'
-    FAN_DUTY_PATH = '/sys/bus/i2c/devices/2-0066/fan_duty_cycle_percentage'
+    BASE_VAL_PATH = '/sys/bus/i2c/devices/11-0066/{0}'
+    FAN_DUTY_PATH = '/sys/bus/i2c/devices/11-0066/fan_duty_cycle_percentage'
 
     #logfile = ''
     #loglevel = logging.INFO
