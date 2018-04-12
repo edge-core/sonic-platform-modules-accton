@@ -6,11 +6,11 @@ from setuptools import setup
 os.listdir
 
 setup(
-   name='as7712_32x',
+   name='as6712_32x',
    version='1.0',
-   description='Module to initialize Accton AS7712-32X platforms',
+   description='Module to initialize Accton AS6712-32X platforms',
    
-   packages=['as7712_32x'],
-   package_dir={'as7712_32x': 'as7712-32x/classes'},
+   packages=['as6712_32x'],
+   package_dir={'as6712_32x': 'as6712-32x/classes'},
 )
 
