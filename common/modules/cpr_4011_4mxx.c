@@ -36,11 +36,11 @@
 
 #define MAX_FAN_DUTY_CYCLE 100
 
-/* Addresses scanned
+/* Addresses scanned 
  */
 static const unsigned short normal_i2c[] = { 0x3c, 0x3d, 0x3e, 0x3f, I2C_CLIENT_END };
 
-/* Each client has this additional data
+/* Each client has this additional data 
  */
 struct cpr_4011_4mxx_data {
     struct device      *hwmon_dev;
@@ -74,13 +74,15 @@ enum cpr_4011_4mxx_sysfs_attributes {
     PSU_I_OUT,
     PSU_P_IN,
     PSU_P_OUT,
+    PSU_P_IN_UV,
+    PSU_P_OUT_UV,
     PSU_TEMP1_INPUT,
     PSU_FAN1_FAULT,
     PSU_FAN1_DUTY_CYCLE,
     PSU_FAN1_SPEED,
 };
 
-/* sysfs attributes for hwmon
+/* sysfs attributes for hwmon 
  */
 static SENSOR_DEVICE_ATTR(psu_v_in,        S_IRUGO, show_linear,      NULL, PSU_V_IN);
 static SENSOR_DEVICE_ATTR(psu_v_out,       S_IRUGO, show_vout,        NULL, PSU_V_OUT);
@@ -93,6 +95,21 @@ static SENSOR_DEVICE_ATTR(psu_fan1_fault,  S_IRUGO, show_fan_fault,   NULL, PSU_
 static SENSOR_DEVICE_ATTR(psu_fan1_duty_cycle_percentage, S_IWUSR | S_IRUGO, show_linear, set_fan_duty_cycle, PSU_FAN1_DUTY_CYCLE);
 static SENSOR_DEVICE_ATTR(psu_fan1_speed_rpm, S_IRUGO, show_linear,   NULL, PSU_FAN1_SPEED);
 
+/*Duplicate nodes for lm-sensors. 1 for input, 2 for output.*/
+static SENSOR_DEVICE_ATTR(in1_input, S_IRUGO, show_linear,    NULL, PSU_V_IN);
+static SENSOR_DEVICE_ATTR(in2_input, S_IRUGO, show_vout,    NULL, PSU_V_OUT);
+static SENSOR_DEVICE_ATTR(curr1_input, S_IRUGO, show_linear,    NULL, PSU_I_IN);
+static SENSOR_DEVICE_ATTR(curr2_input, S_IRUGO, show_linear,    NULL, PSU_I_OUT);
+static SENSOR_DEVICE_ATTR(power1_input, S_IRUGO, show_linear,    NULL, PSU_P_IN_UV);
+static SENSOR_DEVICE_ATTR(power2_input, S_IRUGO, show_linear,    NULL, PSU_P_OUT_UV);
+static SENSOR_DEVICE_ATTR(temp1_input, S_IRUGO, show_linear,    NULL, PSU_TEMP1_INPUT);
+static SENSOR_DEVICE_ATTR(fan1_input, S_IRUGO, show_linear, NULL, PSU_FAN1_SPEED);
+static SENSOR_DEVICE_ATTR(fan1_fault,  S_IRUGO, show_fan_fault,   NULL, PSU_FAN1_FAULT);
+
+
+
+
+
 static struct attribute *cpr_4011_4mxx_attributes[] = {
     &sensor_dev_attr_psu_v_in.dev_attr.attr,
     &sensor_dev_attr_psu_v_out.dev_attr.attr,
@@ -104,6 +121,16 @@ static struct attribute *cpr_4011_4mxx_attributes[] = {
     &sensor_dev_attr_psu_fan1_fault.dev_attr.attr,
     &sensor_dev_attr_psu_fan1_duty_cycle_percentage.dev_attr.attr,
     &sensor_dev_attr_psu_fan1_speed_rpm.dev_attr.attr,
+     /*Duplicate nodes for lm-sensors.*/
+    &sensor_dev_attr_curr1_input.dev_attr.attr,
+    &sensor_dev_attr_curr2_input.dev_attr.attr,
+    &sensor_dev_attr_in1_input.dev_attr.attr,
+    &sensor_dev_attr_in2_input.dev_attr.attr,
+    &sensor_dev_attr_power1_input.dev_attr.attr,
+    &sensor_dev_attr_power2_input.dev_attr.attr,
+    &sensor_dev_attr_temp1_input.dev_attr.attr,
+    &sensor_dev_attr_fan1_input.dev_attr.attr,
+    &sensor_dev_attr_fan1_fault.dev_attr.attr,
     NULL
 };
 
@@ -116,18 +143,18 @@ static int two_complement_to_int(u16 data, u8 valid_bit, int mask)
 }
 
 static ssize_t set_fan_duty_cycle(struct device *dev, struct device_attribute *da,
-                                  const char *buf, size_t count)
+			const char *buf, size_t count)
 {
     struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
     struct i2c_client *client = to_i2c_client(dev);
     struct cpr_4011_4mxx_data *data = i2c_get_clientdata(client);
     int nr = (attr->index == PSU_FAN1_DUTY_CYCLE) ? 0 : 1;
-    long speed;
-    int error;
+	long speed;
+	int error;
 
-    error = kstrtol(buf, 10, &speed);
-    if (error)
-        return error;
+	error = kstrtol(buf, 10, &speed);
+	if (error)
+		return error;
 
     if (speed < 0 || speed > MAX_FAN_DUTY_CYCLE)
         return -EINVAL;
@@ -141,7 +168,7 @@ static ssize_t set_fan_duty_cycle(struct device *dev, struct device_attribute *d
 }
 
 static ssize_t show_linear(struct device *dev, struct device_attribute *da,
-                           char *buf)
+             char *buf)
 {
     struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
     struct cpr_4011_4mxx_data *data = cpr_4011_4mxx_update_device(dev);
@@ -149,7 +176,7 @@ static ssize_t show_linear(struct device *dev, struct device_attribute *da,
     u16 value = 0;
     int exponent, mantissa;
     int multiplier = 1000;
-
+    
     switch (attr->index) {
     case PSU_V_IN:
         value = data->v_in;
@@ -160,9 +187,15 @@ static ssize_t show_linear(struct device *dev, struct device_attribute *da,
     case PSU_I_OUT:
         value = data->i_out;
         break;
+    case PSU_P_IN_UV:
+        multiplier = 1000000;  /*For lm-sensors, unit is micro-Volt.*/
+    /*Passing through*/
     case PSU_P_IN:
         value = data->p_in;
         break;
+    case PSU_P_OUT_UV:
+        multiplier = 1000000;  /*For lm-sensors, unit is micro-Volt.*/
+    /*Passing through*/
     case PSU_P_OUT:
         value = data->p_out;
         break;
@@ -180,16 +213,16 @@ static ssize_t show_linear(struct device *dev, struct device_attribute *da,
     default:
         break;
     }
-
+    
     exponent = two_complement_to_int(value >> 11, 5, 0x1f);
     mantissa = two_complement_to_int(value & 0x7ff, 11, 0x7ff);
 
     return (exponent >= 0) ? sprintf(buf, "%d\n", (mantissa << exponent) * multiplier) :
-           sprintf(buf, "%d\n", (mantissa * multiplier) / (1 << -exponent));
+                             sprintf(buf, "%d\n", (mantissa * multiplier) / (1 << -exponent));                      
 }
 
 static ssize_t show_fan_fault(struct device *dev, struct device_attribute *da,
-                              char *buf)
+             char *buf)
 {
     struct sensor_device_attribute *attr = to_sensor_dev_attr(da);
     struct cpr_4011_4mxx_data *data = cpr_4011_4mxx_update_device(dev);
@@ -200,7 +233,7 @@ static ssize_t show_fan_fault(struct device *dev, struct device_attribute *da,
 }
 
 static ssize_t show_vout(struct device *dev, struct device_attribute *da,
-                         char *buf)
+             char *buf)
 {
     struct cpr_4011_4mxx_data *data = cpr_4011_4mxx_update_device(dev);
     int exponent, mantissa;
@@ -210,7 +243,7 @@ static ssize_t show_vout(struct device *dev, struct device_attribute *da,
     mantissa = data->v_out;
 
     return (exponent > 0) ? sprintf(buf, "%d\n", (mantissa << exponent) * multiplier) :
-           sprintf(buf, "%d\n", (mantissa * multiplier) / (1 << -exponent));
+                            sprintf(buf, "%d\n", (mantissa * multiplier) / (1 << -exponent));
 }
 
 static const struct attribute_group cpr_4011_4mxx_group = {
@@ -218,13 +251,13 @@ static const struct attribute_group cpr_4011_4mxx_group = {
 };
 
 static int cpr_4011_4mxx_probe(struct i2c_client *client,
-                               const struct i2c_device_id *dev_id)
+            const struct i2c_device_id *dev_id)
 {
     struct cpr_4011_4mxx_data *data;
     int status;
 
-    if (!i2c_check_functionality(client->adapter,
-                                 I2C_FUNC_SMBUS_BYTE_DATA | I2C_FUNC_SMBUS_WORD_DATA)) {
+    if (!i2c_check_functionality(client->adapter, 
+        I2C_FUNC_SMBUS_BYTE_DATA | I2C_FUNC_SMBUS_WORD_DATA)) {
         status = -EIO;
         goto exit;
     }
@@ -254,8 +287,8 @@ static int cpr_4011_4mxx_probe(struct i2c_client *client,
     }
 
     dev_info(&client->dev, "%s: psu '%s'\n",
-             dev_name(data->hwmon_dev), client->name);
-
+         dev_name(data->hwmon_dev), client->name);
+    
     return 0;
 
 exit_remove:
@@ -263,7 +296,7 @@ exit_remove:
 exit_free:
     kfree(data);
 exit:
-
+    
     return status;
 }
 
@@ -274,7 +307,7 @@ static int cpr_4011_4mxx_remove(struct i2c_client *client)
     hwmon_device_unregister(data->hwmon_dev);
     sysfs_remove_group(&client->dev.kobj, &cpr_4011_4mxx_group);
     kfree(data);
-
+    
     return 0;
 }
 
@@ -324,57 +357,61 @@ static struct cpr_4011_4mxx_data *cpr_4011_4mxx_update_device(struct device *dev
 {
     struct i2c_client *client = to_i2c_client(dev);
     struct cpr_4011_4mxx_data *data = i2c_get_clientdata(client);
-
+    
     mutex_lock(&data->update_lock);
 
     if (time_after(jiffies, data->last_updated + HZ + HZ / 2)
-            || !data->valid) {
+        || !data->valid) {
         int i, status;
         struct reg_data_byte regs_byte[] = { {0x20, &data->vout_mode},
-            {0x81, &data->fan_fault}
-        };
-        struct reg_data_word regs_word[] = { {0x88, &data->v_in},
-            {0x8b, &data->v_out},
-            {0x89, &data->i_in},
-            {0x8c, &data->i_out},
-            {0x96, &data->p_out},
-            {0x97, &data->p_in},
-            {0x8d, &(data->temp_input[0])},
-            {0x8e, &(data->temp_input[1])},
-            {0x3b, &(data->fan_duty_cycle[0])},
-            {0x3c, &(data->fan_duty_cycle[1])},
-            {0x90, &(data->fan_speed[0])},
-            {0x91, &(data->fan_speed[1])}
-        };
+                                             {0x81, &data->fan_fault}};
+        struct reg_data_word regs_word[] = { {0x96, &data->p_out}, /*p_out must be the first one.*/
+                                             {0x97, &data->p_in},
+                                             {0x8b, &data->v_out},
+                                             {0x89, &data->i_in},
+                                             {0x8c, &data->i_out},
+                                             {0x8d, &(data->temp_input[0])},
+                                             {0x8e, &(data->temp_input[1])},
+                                             {0x3b, &(data->fan_duty_cycle[0])},
+                                             {0x3c, &(data->fan_duty_cycle[1])},
+                                             {0x90, &(data->fan_speed[0])},
+                                             {0x91, &(data->fan_speed[1])}};
 
         dev_dbg(&client->dev, "Starting cpr_4011_4mxx update\n");
 
-        /* Read byte data */
+        /* Read byte data */        
         for (i = 0; i < ARRAY_SIZE(regs_byte); i++) {
             status = cpr_4011_4mxx_read_byte(client, regs_byte[i].reg);
-
+            
             if (status < 0) {
                 dev_dbg(&client->dev, "reg %d, err %d\n",
                         regs_byte[i].reg, status);
+                *(regs_byte[i].value) = 0;
             }
             else {
                 *(regs_byte[i].value) = status;
             }
         }
-
-        /* Read word data */
+                    
+        /* Read word data */                    
         for (i = 0; i < ARRAY_SIZE(regs_word); i++) {
             status = cpr_4011_4mxx_read_word(client, regs_word[i].reg);
-
+            
             if (status < 0) {
                 dev_dbg(&client->dev, "reg %d, err %d\n",
                         regs_word[i].reg, status);
+                *(regs_word[i].value) = 0;
             }
             else {
                 *(regs_word[i].value) = status;
             }
-        }
 
+            /*Elimated false values. so p_out must be updated at first. */
+            if (data->p_out == 0) {
+                *(regs_word[i].value) = 0;
+            }
+        }
+        
         data->last_updated = jiffies;
         data->valid = 1;
     }
