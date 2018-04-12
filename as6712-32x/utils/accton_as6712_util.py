@@ -14,6 +14,13 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Description:
+#   Due to adoption of optoe drivers, sideband signals of SFPs are moved
+#   into cpld drivers.  Add a new dict, cpld_of_module, for mapping this
+#   attributes to corresponding cpld nodes.
+#
+
 
 """
 Usage: %(scriptName)s [options] command object
@@ -62,7 +69,7 @@ hwmon_nodes = {'led': ['brightness'] ,
                'fan3': ['fan3_duty_cycle_percentage','fan3_fault', 'fan3_speed_rpm', 'fan3_direction', 'fanr3_fault', 'fanr3_speed_rpm'],
                'fan4': ['fan4_duty_cycle_percentage','fan4_fault', 'fan4_speed_rpm', 'fan4_direction', 'fanr4_fault', 'fanr4_speed_rpm'],
                'fan5': ['fan5_duty_cycle_percentage','fan5_fault', 'fan5_speed_rpm', 'fan5_direction', 'fanr5_fault', 'fanr5_speed_rpm'],
-	      }
+          }
 hwmon_prefix ={'led': led_prefix,
                'fan1': fan_prefix,
                'fan2': fan_prefix,
@@ -73,18 +80,25 @@ hwmon_prefix ={'led': led_prefix,
 
 i2c_prefix = '/sys/bus/i2c/devices/'
 i2c_bus = {'thermal': ['38-0048','39-0049', '40-004a', '41-004b'] ,
-           'psu': ['35-0050','36-0053'],
+           'psu': ['35-0038','36-003b'],
            'sfp': ['-0050']}
 i2c_nodes = {
            'thermal': ['hwmon/hwmon*/temp1_input'] ,
            'psu': ['psu_present ', 'psu_power_good']    ,
-           'sfp': ['sfp_is_present ', 'sfp_tx_disable']}
+           'sfp': ['module_present_', 'sfp_tx_disable']}
 
 sfp_map =  [ 2,  3,  4,  5,  6,  7,  8,  9, 
             10, 11, 12, 13, 14, 15, 16, 17, 
             18, 19, 20, 21, 22, 23, 24, 25, 
             26, 27, 28, 29, 30, 31, 32, 33
             ]
+
+#For sideband signals of SFP/QSFP modules.
+bus_of_cpld  = [0, 1]
+cpld_of_module = {'-0062': list(range(0,16)),
+                  '-0064': list(range(16,32)) }
+
+
 mknod =[
 'echo as6712_32x_cpld1 0x60 > /sys/bus/i2c/devices/i2c-0/new_device',
 'echo as6712_32x_cpld2 0x62 > /sys/bus/i2c/devices/i2c-0/new_device',
@@ -95,14 +109,14 @@ mknod =[
 # PSU-1
 'echo as6712_32x_psu1 0x38 > /sys/bus/i2c/devices/i2c-35/new_device',
 'echo cpr_4011_4mxx  0x3c > /sys/bus/i2c/devices/i2c-35/new_device',
-'echo as6712_32x_psu1 0x50 > /sys/bus/i2c/devices/i2c-35/new_device',
-'echo ym2401  0x58 > /sys/bus/i2c/devices/i2c-35/new_device',
+#'echo as6712_32x_psu1 0x50 > /sys/bus/i2c/devices/i2c-35/new_device',
+#'echo ym2401  0x58 > /sys/bus/i2c/devices/i2c-35/new_device',
 
 # PSU-2
 'echo as6712_32x_psu2 0x3b > /sys/bus/i2c/devices/i2c-36/new_device',
 'echo cpr_4011_4mxx 0x3f > /sys/bus/i2c/devices/i2c-36/new_device',
-'echo as6712_32x_psu2 0x53 > /sys/bus/i2c/devices/i2c-36/new_device',
-'echo ym2401  0x5b > /sys/bus/i2c/devices/i2c-36/new_device',
+#'echo as6712_32x_psu2 0x53 > /sys/bus/i2c/devices/i2c-36/new_device',
+#'echo ym2401  0x5b > /sys/bus/i2c/devices/i2c-36/new_device',
 
 'echo lm75 0x48 > /sys/bus/i2c/devices/i2c-38/new_device',
 'echo lm75 0x49 > /sys/bus/i2c/devices/i2c-39/new_device',
@@ -120,14 +134,14 @@ mknod2 =[
 # PSU-1
 'echo as6712_32x_psu1 0x38 > /sys/bus/i2c/devices/i2c-35/new_device',
 'echo cpr_4011_4mxx  0x3c > /sys/bus/i2c/devices/i2c-35/new_device',
-'echo as6712_32x_psu1 0x50 > /sys/bus/i2c/devices/i2c-35/new_device',
-'echo ym2401  0x58 > /sys/bus/i2c/devices/i2c-35/new_device',
+#'echo as6712_32x_psu1 0x50 > /sys/bus/i2c/devices/i2c-35/new_device',
+#'echo ym2401  0x58 > /sys/bus/i2c/devices/i2c-35/new_device',
 
 # PSU-2
 'echo as6712_32x_psu2 0x3b > /sys/bus/i2c/devices/i2c-36/new_device',
 'echo cpr_4011_4mxx 0x3f > /sys/bus/i2c/devices/i2c-36/new_device',
-'echo as6712_32x_psu2 0x53 > /sys/bus/i2c/devices/i2c-36/new_device',
-'echo ym2401  0x5b > /sys/bus/i2c/devices/i2c-36/new_device',
+#'echo as6712_32x_psu2 0x53 > /sys/bus/i2c/devices/i2c-36/new_device',
+#'echo ym2401  0x5b > /sys/bus/i2c/devices/i2c-36/new_device',
 
 'echo lm75 0x48 > /sys/bus/i2c/devices/i2c-38/new_device',
 'echo lm75 0x49 > /sys/bus/i2c/devices/i2c-39/new_device',
@@ -136,8 +150,7 @@ mknod2 =[
 ]
 
 FORCE = 0
-logging.basicConfig(filename= PROJECT_NAME+'.log', filemode='w',level=logging.DEBUG)
-logging.basicConfig(level=logging.INFO)
+
 
 
 if DEBUG == True:
@@ -167,6 +180,7 @@ def main():
             show_help()
         elif opt in ('-d', '--debug'):
             DEBUG = True
+            logging.basicConfig(filename= PROJECT_NAME+'.log', filemode='w',level=logging.DEBUG)
             logging.basicConfig(level=logging.INFO)
         elif opt in ('-f', '--force'):
             FORCE = 1
@@ -208,7 +222,7 @@ def  show_set_help():
     print  cmd +" [led|sfp|fan]"
     print  "    use \""+ cmd + " led 0-4 \"  to set led color"
     print  "    use \""+ cmd + " fan 0-100\" to set fan duty percetage"
-    print  "    use \""+ cmd + " sfp 1-54 {0|1}\" to set sfp# tx_disable"
+    print  "    use \""+ cmd + " sfp 1-32 {0|1}\" to set sfp# tx_disable"
     sys.exit(0)
 
 def  show_eeprom_help():
@@ -246,14 +260,14 @@ def driver_inserted():
 kos = [
 'depmod -ae',
 'modprobe i2c_dev',
-'modprobe i2c_mux_pca932x',
+'modprobe i2c_mux_pca954x',
 'modprobe optoe',
-'modprobe as6712_32x_cpld',
+'modprobe accton_as6712_32x_cpld',
 'modprobe cpr_4011_4mxx',
-'modprobe ym2651y',
-'modprobe as6712_32x_fan',
-'modprobe as6712_32x_led',
-'modprobe as6712_32x_psu']
+#'modprobe ym2651y',
+'modprobe accton_as6712_32x_fan',
+'modprobe leds-accton_as6712_32x',
+'modprobe accton_as6712_32x_psu']
 
 def driver_install():
     global FORCE
@@ -275,7 +289,13 @@ def driver_uninstall():
                 return status
     return 0
 
-
+def cpld_bus_check():
+    tmp = "i2cget -y -f 0 0x60"
+    status, output = log_os_system(tmp, 0)
+    if status:
+        return 1
+    else:
+        return 0
 
 def i2c_order_check():
     # i2c bus 0 and 1 might be installed in different order.
@@ -339,7 +359,7 @@ def device_uninstall():
     if status==0:
         I2C_ORDER=1
     else:
-    	I2C_ORDER=0
+        I2C_ORDER=0
 
     for i in range(0,len(sfp_map)):
         target = "/sys/bus/i2c/devices/i2c-"+str(sfp_map[i])+"/delete_device"
@@ -425,6 +445,7 @@ def devices_info():
         for i in range(0,DEVICE_NO[key]):
             ALL_DEVICE[key][key+str(i+1)] = []
 
+    order = cpld_bus_check()
     for key in i2c_bus:
         buses = i2c_bus[key]
         nodes = i2c_nodes[key]
@@ -438,10 +459,13 @@ def devices_info():
                         ALL_DEVICE[key][node].append(path)
                 elif  'sfp' == key:
                     for k in range(0,DEVICE_NO[key]):
-                        node = key+str(k+1)
-                        path = i2c_prefix+ str(sfp_map[k])+ buses[i]+"/"+ nodes[j]
-                        my_log(node+": "+ path)
-                        ALL_DEVICE[key][node].append(path)
+                        for lk in cpld_of_module:
+                            if k in cpld_of_module[lk]:
+                                 bus = bus_of_cpld[order]
+                                 node = key+str(k+1)
+                                 path = i2c_prefix + str(bus) + lk + "/"+ nodes[j] + str(k+1) 
+                                 my_log(node+": "+ path)
+                                 ALL_DEVICE[key][node].append(path)
                 else:
                     node = key+str(i+1)
                     path = i2c_prefix+ buses[i]+"/"+ nodes[j]
@@ -477,7 +501,7 @@ def show_eeprom(index):
     if len(ALL_DEVICE)==0:
         devices_info()
     node = ALL_DEVICE['sfp'] ['sfp'+str(index)][0]
-    node = node.replace(node.split("/")[-1], 'sfp_eeprom')
+    node = node.replace(node.split("/")[-1], 'eeprom')
     # check if got hexdump command in current environment
     ret, log = log_os_system("which hexdump", 0)
     ret, log2 = log_os_system("which busybox hexdump", 0)
