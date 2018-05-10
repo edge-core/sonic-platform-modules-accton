@@ -161,7 +161,13 @@ def driver_check():
         return False
     return True
 
-
+def cpld_reset_mac():
+    ret, lsmod = log_os_system("i2cset -y 0 0x77 0x1", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x71 0x2", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x60 0x7 0xdf", 0)
+    time.sleep(1)
+    ret, lsmod = log_os_system("i2cset -y 0 0x60 0x7 0xff", 0)
+    return True
 
 kos = [
 'modprobe i2c_dev',
@@ -181,6 +187,8 @@ def driver_install():
         if status:
             if FORCE == 0:
                 return status
+    
+    status = cpld_reset_mac()
     return 0
 
 def driver_uninstall():
@@ -215,8 +223,8 @@ i2c_nodes = {'fan': ['present', 'front_speed_rpm', 'rear_speed_rpm'] ,
 
 sfp_map =  [
         42,41,44,43,47,45,46,50,
-        48,49,51,52,53,56,55,54,
-        58,57,59,60,61,63,62,64,
+        48,49,52,51,53,56,55,54,
+        58,57,60,59,61,63,62,64,
         66,68,65,67,69,71,72,70,
         74,73,76,75,77,79,78,80,
         81,82,84,85,83,87,88,86,    #port 41~48
@@ -227,7 +235,7 @@ qsfp_end   = 56
 
 #For sideband signals of SFP/QSFP modules.
 cpld_of_module = {'12-0062': list(range(0,30)),
-		  '18-0060': list(range(30,58)) }
+                  '18-0060': list(range(30,58)) }
 
 
 mknod =[
