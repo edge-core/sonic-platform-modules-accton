@@ -41,16 +41,17 @@ from collections import namedtuple
 
 
 
-PROJECT_NAME = 'aswedge100bf_65x'
+PROJECT_NAME = 'wedge100bf_65x'
 version = '0.1.0'
 verbose = False
 DEBUG = False
 args = []
 ALL_DEVICE = {}               
-DEVICE_NO = {'led':5, 'fan':6,'thermal':4, 'psu':2, 'sfp':32}
+#DEVICE_NO = {'led':5, 'fan':6,'thermal':4, 'psu':2, 'sfp':32}
+DEVICE_NO = {'sfp':64}
 FORCE = 0
-#logging.basicConfig(filename= PROJECT_NAME+'.log', filemode='w',level=logging.DEBUG)
-#logging.basicConfig(level=logging.INFO)
+logging.basicConfig(filename= PROJECT_NAME+'.log', filemode='w',level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 
 if DEBUG == True:
@@ -146,18 +147,18 @@ def log_os_system(cmd, show):
     return  status, output
             
 def driver_check():
-    ret, lsmod = log_os_system("lsmod| grep accton", 0)
-    logging.info('mods:'+lsmod)
-    if len(lsmod) ==0:
-        return False   
-    return True
+    ret1, log = log_os_system("lsmod|grep cp2112", 0)
+    ret2, log = log_os_system("lsmod|grep i2c_dev", 0)
+    return not(ret1 or ret2)
 
 
 
 kos = [
 'modprobe i2c_dev',
 'modprobe i2c_mux_pca954x force_deselect_on_exit=1',
-'modprobe optoe'      ,
+'modprobe hid-cp2112'      ,
+'modprobe usbhid'      ,
+'modprobe sff_8436_eeprom'      ,
 ]
 
 def driver_install():
@@ -173,37 +174,66 @@ def driver_install():
 def driver_uninstall():
     global FORCE
     for i in range(0,len(kos)):
+        #remove from the latest inserted.
         rm = kos[-(i+1)].replace("modprobe", "modprobe -rq")
-        rm = rm.replace("insmod", "rmmod")        
+        rm = rm.replace("insmod", "rmmod")  
+      
+        #remove module parameters
+        lst = rm.split(" ")
+        if len(lst) > 3:
+            del(lst[3])
+        rm = " ".join(lst)
+
         status, output = log_os_system(rm, 1)
         if status:
             if FORCE == 0:        
                 return status              
+
+
+
     return 0
 
 led_prefix ='/sys/class/leds/accton_'+PROJECT_NAME+'_led::'
-hwmon_types = {'led': ['diag','fan','loc','psu1','psu2']}
-hwmon_nodes = {'led': ['brightness'] }
-hwmon_prefix ={'led': led_prefix}
+#hwmon_types = {'led': ['diag','fan','loc','psu1','psu2']}
+#hwmon_nodes = {'led': ['brightness'] }
+#hwmon_prefix ={'led': led_prefix}
+hwmon_types = {}
+hwmon_nodes = {}
+hwmon_prefix ={}
 
 i2c_prefix = '/sys/bus/i2c/devices/'
-i2c_bus = {'fan': ['2-0066']                 ,
-           'thermal': ['3-0048','3-0049', '3-004a', '3-004b'] ,
-           'psu': ['10-0050','11-0053'], 
-           'sfp': ['-0050']}
-i2c_nodes = {'fan': ['present', 'front_speed_rpm', 'rear_speed_rpm'] ,
-           'thermal': ['hwmon/hwmon*/temp1_input'] ,
-           'psu': ['psu_present ', 'psu_power_good']    ,
-           'sfp': ['module_present', 'sfp_tx_disable_all']}
-                   
-sfp_map =  [ 4,  3,  6,  5,  8,  7,  10, 9,
-            12, 11, 14, 13, 16, 15, 18, 17,
-            20, 19, 22, 21, 24, 23, 26, 25,
-            28, 27, 30, 29, 32, 31, 34, 33,
-            44, 43, 46, 45, 48, 47, 50, 49,
-            52, 51, 54, 53, 56, 55, 58, 57,
-            60, 59, 62, 61, 64, 63, 66, 65,
-            68, 67, 70, 69, 72, 71, 74, 73 ]
+#i2c_bus = {'fan': ['2-0066']                 ,
+#           'thermal': ['3-0048','3-0049', '3-004a', '3-004b'] ,
+#           'psu': ['10-0050','11-0053'], 
+#           'sfp': ['-0050']}
+#i2c_nodes = {'fan': ['present', 'front_speed_rpm', 'rear_speed_rpm'] ,
+#           'thermal': ['hwmon/hwmon*/temp1_input'] ,
+#           'psu': ['psu_present ', 'psu_power_good']    ,
+#           'sfp': ['module_present', 'sfp_tx_disable_all']}
+            
+i2c_bus= {'sfp': ['-0050']}
+i2c_nodes = { 'sfp': ['module_present']}
+       
+sfp_map =  [             
+            33, 34, 31, 32, 29, 30, 27, 28, 
+            25, 26, 23, 24, 21, 22, 19, 20, 
+            17, 18, 15, 16, 13, 14, 11, 12, 
+            9, 10, 7, 8, 5, 6, 3, 4,
+            73, 74, 71, 72, 69, 70, 67, 68,
+            65, 66, 63, 64, 61, 62, 59, 60,
+            57, 58, 55, 56, 53, 54, 51, 52,
+            49, 50, 47, 48, 45, 46, 43, 44]
+
+sfp_bitmap =  [             
+		30, 31, 28, 29, 26, 27, 24, 25,
+		22, 23, 20, 21, 18, 19, 16, 17,
+		14, 15, 12, 13, 10, 11,  8,  9,
+		 6,  7,  4,  5,  2,  3,  0,  1,
+		62, 63, 60, 61, 58, 59, 56, 57,
+		54, 55, 52, 53, 50, 51, 48, 49,
+		46, 47, 44, 45, 42, 43, 40, 41,
+		38, 39, 36, 37, 34, 35, 32, 33]
+
 mknod =[                 
 'echo pca9548 0x70 > /sys/bus/i2c/devices/i2c-1/new_device',
 'echo pca9548 0x71 > /sys/bus/i2c/devices/i2c-1/new_device',
@@ -224,14 +254,14 @@ mknod2 =[   ]
        
 def i2c_order_check():    
     # i2c bus 0 and 1 might be installed in different order.
-    # Here check if 0x76 is exist @ i2c-0
-    #tmp = "echo pca9548 0x76 > /sys/bus/i2c/devices/i2c-0/new_device"
+    # Here check if 0x74 is exist @ i2c-0
+    #tmp = "echo pca9548 0x74 > /sys/bus/i2c/devices/i2c-0/new_device"
     #status, output = log_os_system(tmp, 0)
     #if not device_exist():
     #    order = 1
     #else:
     #    order = 0
-    #tmp = "echo 0x76 > /sys/bus/i2c/devices/i2c-0/delete_device"       
+    #tmp = "echo 0x74 > /sys/bus/i2c/devices/i2c-0/delete_device"       
     #status, output = log_os_system(tmp, 0)       
     #return order
     return 0
@@ -241,7 +271,7 @@ def device_install():
     
     order = i2c_order_check()
                 
-    # if 0x76 is not exist @i2c-0, use reversed bus order    
+    # if 0x74 is not exist @i2c-0, use reversed bus order    
     if order:       
         for i in range(0,len(mknod2)):
             #for pca954x need times to built new i2c buses            
@@ -265,17 +295,32 @@ def device_install():
                 if FORCE == 0:                
                     return status  
     for i in range(0,len(sfp_map)):
-        status, output =log_os_system("echo optoe1 0x50 > /sys/bus/i2c/devices/i2c-"+str(sfp_map[i])+"/new_device", 1)
+        status, output =log_os_system("echo sff8436  0x50 > /sys/bus/i2c/devices/i2c-"+str(sfp_map[i])+"/new_device", 1)
         if status:
             print output
             if FORCE == 0:            
-                return status                                  
+                return status 
+
+    #For Low-Power Mode for QSFPs.
+    #set PCA9535 reg 6 & 7 to config 16 IO ports as ouputs.
+    ret, log = log_os_system("i2cset -y -f 35 0x20 6 0x0000 w", 0)
+    ret, log = log_os_system("i2cset -y -f 36 0x21 6 0x0000 w", 0)
+    ret, log = log_os_system("i2cset -y -f 75 0x20 6 0x0000 w", 0)
+    ret, log = log_os_system("i2cset -y -f 76 0x21 6 0x0000 w", 0)
+
+    #For presence for QSFPs.
+    #set PCA9535 reg 6 & 7 to config 16 IO ports as inputs
+    ret, log = log_os_system("i2cset -y -f 37 0x22 6 0xffff w", 0)
+    ret, log = log_os_system("i2cset -y -f 38 0x23 6 0xffff w", 0)
+    ret, log = log_os_system("i2cset -y -f 77 0x22 6 0xffff w", 0)
+    ret, log = log_os_system("i2cset -y -f 78 0x23 6 0xffff w", 0)
+                                 
     return 
     
 def device_uninstall():
     global FORCE
     
-    #status, output =log_os_system("ls /sys/bus/i2c/devices/1-0076", 0)
+    #status, output =log_os_system("ls /sys/bus/i2c/devices/1-0074", 0)
     #if status==0:
     #    I2C_ORDER=1
     #else:
@@ -311,6 +356,8 @@ def system_ready():
     if driver_check() == False:
         return False
     if not device_exist(): 
+        return False
+    if not i2c_stub_exist(): 
         return False
     return True
                
@@ -380,6 +427,7 @@ def devices_info():
                     for k in range(0,DEVICE_NO[key]):
                         node = key+str(k+1)
                         path = i2c_prefix+ str(sfp_map[k])+ buses[i]+"/"+ nodes[j]                
+                        #path = str(k) +"/"+ nodes[j]                
                         my_log(node+": "+ path)
                         ALL_DEVICE[key][node].append(path)                                        
                 else:
@@ -417,7 +465,7 @@ def show_eeprom(index):
     if len(ALL_DEVICE)==0:
         devices_info()        
     node = ALL_DEVICE['sfp'] ['sfp'+str(index)][0]
-    node = node.replace(node.split("/")[-1], 'sfp_eeprom')
+    node = node.replace(node.split("/")[-1], 'eeprom')
     # check if got hexdump command in current environment
     ret, log = log_os_system("which hexdump", 0)
     ret, log2 = log_os_system("which busybox hexdump", 0)    
@@ -503,6 +551,24 @@ def get_value(input):
     digit = re.findall('\d+', input)
     return int(digit[0])
               
+def get_pca9535():
+    bit_array = 0
+    pca535_cmds = [ 
+                  "i2cget -y 78 0x23 0 w",
+                  "i2cget -y 77 0x22 0 w", 
+                  "i2cget -y 38 0x23 0 w", 
+                  "i2cget -y 37 0x22 0 w",
+		  ]
+    for cmd in pca535_cmds:
+    	ret, log = log_os_system(cmd, 0)
+        if (ret):
+            print("Failed to run cmd:\"%s\" with ret(%d)" % (cmd, ret))     
+	    return ret
+        bit_array = bit_array << 16;
+	bit_array = bit_array | int(log.rstrip(), 16)
+
+    return bit_array
+
 def device_traversal():
     if system_ready()==False:
         print("System's not ready.")        
@@ -511,32 +577,47 @@ def device_traversal():
         
     if len(ALL_DEVICE)==0:
         devices_info()
+
+    present_bits = get_pca9535()
+    print("present: %x" % present_bits)
+
     for i in sorted(ALL_DEVICE.keys()):
         print("============================================")        
         print(i.upper()+": ")
         print("============================================")
          
+        pi=0
         for j in sorted(ALL_DEVICE[i].keys(), key=get_value):    
-            print "   "+j+":",
             for k in (ALL_DEVICE[i][j]):
-                ret, log = log_os_system("cat "+k, 0)
+                #ret, log = log_os_system("cat "+k, 0)
                 func = k.split("/")[-1].strip()
                 func = re.sub(j+'_','',func,1)
-                func = re.sub(i.lower()+'_','',func,1)                 
+                func = re.sub(i.lower()+'_','',func,1)     
+		ret = 0
+		pst =  (present_bits>>sfp_bitmap[pi]) & 1
+		pi += 1
+		pst = not pst      #present is low-active signal
                 if ret==0:
-                    print func+"="+log+" ",                  
+		    if (pst == True):
+            		print "   "+j+":",
+                        print func+"="+str(pst)+" "
+                        print("----------------------------------------------------------------")
                 else:
                     print func+"="+"X"+" ",
-            print                    
-            print("----------------------------------------------------------------")
+
                                               
      
         print
     return
             
 def device_exist():
-    ret1, log = log_os_system("ls "+i2c_prefix+"*0076", 0)
-    ret2, log = log_os_system("ls "+i2c_prefix+"i2c-2", 0)
+    ret1, log = log_os_system("ls "+i2c_prefix+"*0074", 0)
+    ret2, log = log_os_system("ls "+i2c_prefix+"i2c-3", 0)
+    return not(ret1 or ret2)
+
+def i2c_stub_exist():
+    ret1, log = log_os_system("ls /dev/i2c-1", 0)
+    ret2, log = log_os_system("ls /dev/i2c-2", 0)
     return not(ret1 or ret2)
 
 if __name__ == "__main__":
