@@ -48,9 +48,9 @@ class ThermalUtil(object):
     _thermal_to_device_path_mapping = {}
 
     _thermal_to_device_node_mapping = {
-            THERMAL_NUM_1_IDX: ['15', '48'],
-            THERMAL_NUM_2_IDX: ['15', '49'],
-            THERMAL_NUM_3_IDX: ['15', '4a'],
+            THERMAL_NUM_1_IDX: ['38', '48'],
+            THERMAL_NUM_2_IDX: ['39', '49'],
+            THERMAL_NUM_3_IDX: ['40', '4a'],
            }
 
     def __init__(self):

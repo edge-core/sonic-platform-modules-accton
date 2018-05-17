@@ -34,13 +34,12 @@ except ImportError as e:
 class FanUtil(object):
     """Platform-specific FanUtil class"""
 
-    FAN_NUM_ON_MAIN_BROAD = 6
+    FAN_NUM_ON_MAIN_BROAD = 5
     FAN_NUM_1_IDX = 1
     FAN_NUM_2_IDX = 2
     FAN_NUM_3_IDX = 3
     FAN_NUM_4_IDX = 4
     FAN_NUM_5_IDX = 5
-    FAN_NUM_6_IDX = 6
 
     FAN_NODE_NUM_OF_MAP = 2
     FAN_NODE_FAULT_IDX_OF_MAP = 1
@@ -49,8 +48,10 @@ class FanUtil(object):
     #FAN_NODE_DUTY_IDX_OF_MAP = 4
     #FANR_NODE_FAULT_IDX_OF_MAP = 5
 
-    BASE_VAL_PATH = '/sys/bus/i2c/devices/11-0066/{0}'
-    FAN_DUTY_PATH = '/sys/bus/i2c/devices/11-0066/fan_duty_cycle_percentage'
+    #BASE_VAL_PATH = '/sys/bus/i2c/devices/11-0066/{0}'
+    #FAN_DUTY_PATH = '/sys/bus/i2c/devices/11-0066/fan_duty_cycle_percentage'
+    BASE_VAL_PATH = '/sys/devices/platform/as6712_32x_fan/{0}'
+    FAN_DUTY_PATH = '/sys/devices/platform/as6712_32x_fan/fan1_duty_cycle_percentage'
 
     #logfile = ''
     #loglevel = logging.INFO
@@ -82,8 +83,6 @@ class FanUtil(object):
            (FAN_NUM_5_IDX, FAN_NODE_FAULT_IDX_OF_MAP): 'fan5_fault',
            (FAN_NUM_5_IDX, FAN_NODE_DIR_IDX_OF_MAP): 'fan5_direction',
             
-           (FAN_NUM_6_IDX, FAN_NODE_FAULT_IDX_OF_MAP): 'fan6_fault',
-           (FAN_NUM_6_IDX, FAN_NODE_DIR_IDX_OF_MAP): 'fan6_direction',
            }
 
     def _get_fan_to_device_node(self, fan_num, node_num):

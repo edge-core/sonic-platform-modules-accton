@@ -15,13 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-#
 # Description:
 #   Due to adoption of optoe drivers, sideband signals of SFPs are moved
 #   into cpld drivers.  Add a new dict, cpld_of_module, for mapping this
 #   attributes to corresponding cpld nodes.
 #
-
 
 
 """
@@ -47,19 +45,112 @@ import re
 import time
 from collections import namedtuple
 
-
-
-
-PROJECT_NAME = 'as7326_56x'
-version = '0.1.0'
+PROJECT_NAME = 'as6712_32x'
+version = '0.2.0'
 verbose = False
 DEBUG = False
 args = []
 ALL_DEVICE = {}
-DEVICE_NO = {'led':5, 'fan':6,'thermal':4, 'psu':2, 'sfp':58}
+DEVICE_NO = {'led':5, 'fan1':1, 'fan2':1,'fan3':1,'fan4':1,'fan5':1,'thermal':4, 'psu':2, 'sfp':32}
+
+
+led_prefix ='/sys/devices/platform/as6712_32x_led/leds/accton_'+PROJECT_NAME+'_led::'
+fan_prefix ='/sys/devices/platform/as6712_32x_'
+hwmon_types = {'led': ['diag','fan','loc','psu1','psu2'],
+               'fan1': ['fan'],
+               'fan2': ['fan'],
+               'fan3': ['fan'],
+               'fan4': ['fan'],
+               'fan5': ['fan'],
+              }
+hwmon_nodes = {'led': ['brightness'] ,
+               'fan1': ['fan1_duty_cycle_percentage', 'fan1_fault', 'fan1_speed_rpm', 'fan1_direction', 'fanr1_fault', 'fanr1_speed_rpm'],
+               'fan2': ['fan2_duty_cycle_percentage','fan2_fault', 'fan2_speed_rpm', 'fan2_direction', 'fanr2_fault', 'fanr2_speed_rpm'],
+               'fan3': ['fan3_duty_cycle_percentage','fan3_fault', 'fan3_speed_rpm', 'fan3_direction', 'fanr3_fault', 'fanr3_speed_rpm'],
+               'fan4': ['fan4_duty_cycle_percentage','fan4_fault', 'fan4_speed_rpm', 'fan4_direction', 'fanr4_fault', 'fanr4_speed_rpm'],
+               'fan5': ['fan5_duty_cycle_percentage','fan5_fault', 'fan5_speed_rpm', 'fan5_direction', 'fanr5_fault', 'fanr5_speed_rpm'],
+          }
+hwmon_prefix ={'led': led_prefix,
+               'fan1': fan_prefix,
+               'fan2': fan_prefix,
+               'fan3': fan_prefix,
+               'fan4': fan_prefix,
+               'fan5': fan_prefix,
+              }
+
+i2c_prefix = '/sys/bus/i2c/devices/'
+i2c_bus = {'thermal': ['38-0048','39-0049', '40-004a', '41-004b'] ,
+           'psu': ['35-0038','36-003b'],
+           'sfp': ['-0050']}
+i2c_nodes = {
+           'thermal': ['hwmon/hwmon*/temp1_input'] ,
+           'psu': ['psu_present ', 'psu_power_good']    ,
+           'sfp': ['module_present_', 'sfp_tx_disable']}
+
+sfp_map =  [ 2,  3,  4,  5,  6,  7,  8,  9, 
+            10, 11, 12, 13, 14, 15, 16, 17, 
+            18, 19, 20, 21, 22, 23, 24, 25, 
+            26, 27, 28, 29, 30, 31, 32, 33
+            ]
+
+#For sideband signals of SFP/QSFP modules.
+bus_of_cpld  = [0, 1]
+cpld_of_module = {'-0062': list(range(0,16)),
+                  '-0064': list(range(16,32)) }
+
+
+mknod =[
+'echo as6712_32x_cpld1 0x60 > /sys/bus/i2c/devices/i2c-0/new_device',
+'echo as6712_32x_cpld2 0x62 > /sys/bus/i2c/devices/i2c-0/new_device',
+'echo as6712_32x_cpld3 0x64 > /sys/bus/i2c/devices/i2c-0/new_device',
+'echo pca9548 0x70 > /sys/bus/i2c/devices/i2c-1/new_device',
+'echo 24c02 0x57 > /sys/bus/i2c/devices/i2c-1/new_device',
+
+# PSU-1
+'echo as6712_32x_psu1 0x38 > /sys/bus/i2c/devices/i2c-35/new_device',
+'echo cpr_4011_4mxx  0x3c > /sys/bus/i2c/devices/i2c-35/new_device',
+#'echo as6712_32x_psu1 0x50 > /sys/bus/i2c/devices/i2c-35/new_device',
+#'echo ym2401  0x58 > /sys/bus/i2c/devices/i2c-35/new_device',
+
+# PSU-2
+'echo as6712_32x_psu2 0x3b > /sys/bus/i2c/devices/i2c-36/new_device',
+'echo cpr_4011_4mxx 0x3f > /sys/bus/i2c/devices/i2c-36/new_device',
+#'echo as6712_32x_psu2 0x53 > /sys/bus/i2c/devices/i2c-36/new_device',
+#'echo ym2401  0x5b > /sys/bus/i2c/devices/i2c-36/new_device',
+
+'echo lm75 0x48 > /sys/bus/i2c/devices/i2c-38/new_device',
+'echo lm75 0x49 > /sys/bus/i2c/devices/i2c-39/new_device',
+'echo lm75 0x4a > /sys/bus/i2c/devices/i2c-40/new_device',
+'echo lm75 0x4b > /sys/bus/i2c/devices/i2c-41/new_device',
+]
+
+mknod2 =[
+'echo as6712_32x_cpld1 0x60 > /sys/bus/i2c/devices/i2c-1/new_device',
+'echo as6712_32x_cpld2 0x62 > /sys/bus/i2c/devices/i2c-1/new_device',
+'echo as6712_32x_cpld3 0x64 > /sys/bus/i2c/devices/i2c-1/new_device',
+'echo pca9548 0x70 > /sys/bus/i2c/devices/i2c-0/new_device',
+'echo 24c02 0x57 > /sys/bus/i2c/devices/i2c-0/new_device',
+
+# PSU-1
+'echo as6712_32x_psu1 0x38 > /sys/bus/i2c/devices/i2c-35/new_device',
+'echo cpr_4011_4mxx  0x3c > /sys/bus/i2c/devices/i2c-35/new_device',
+#'echo as6712_32x_psu1 0x50 > /sys/bus/i2c/devices/i2c-35/new_device',
+#'echo ym2401  0x58 > /sys/bus/i2c/devices/i2c-35/new_device',
+
+# PSU-2
+'echo as6712_32x_psu2 0x3b > /sys/bus/i2c/devices/i2c-36/new_device',
+'echo cpr_4011_4mxx 0x3f > /sys/bus/i2c/devices/i2c-36/new_device',
+#'echo as6712_32x_psu2 0x53 > /sys/bus/i2c/devices/i2c-36/new_device',
+#'echo ym2401  0x5b > /sys/bus/i2c/devices/i2c-36/new_device',
+
+'echo lm75 0x48 > /sys/bus/i2c/devices/i2c-38/new_device',
+'echo lm75 0x49 > /sys/bus/i2c/devices/i2c-39/new_device',
+'echo lm75 0x4a > /sys/bus/i2c/devices/i2c-40/new_device',
+'echo lm75 0x4b > /sys/bus/i2c/devices/i2c-41/new_device',
+]
+
 FORCE = 0
-#logging.basicConfig(filename= PROJECT_NAME+'.log', filemode='w',level=logging.DEBUG)
-#logging.basicConfig(level=logging.INFO)
+
 
 
 if DEBUG == True:
@@ -79,7 +170,7 @@ def main():
                                                        'debug',
                                                        'force',
                                                           ])
-    if DEBUG == True:                
+    if DEBUG == True:
         print options
         print args
         print len(sys.argv)
@@ -89,6 +180,7 @@ def main():
             show_help()
         elif opt in ('-d', '--debug'):
             DEBUG = True
+            logging.basicConfig(filename= PROJECT_NAME+'.log', filemode='w',level=logging.DEBUG)
             logging.basicConfig(level=logging.INFO)
         elif opt in ('-f', '--force'):
             FORCE = 1
@@ -130,23 +222,26 @@ def  show_set_help():
     print  cmd +" [led|sfp|fan]"
     print  "    use \""+ cmd + " led 0-4 \"  to set led color"
     print  "    use \""+ cmd + " fan 0-100\" to set fan duty percetage"
-    print  "    use \""+ cmd + " sfp 1-56 {0|1}\" to set sfp# tx_disable"
+    print  "    use \""+ cmd + " sfp 1-32 {0|1}\" to set sfp# tx_disable"
     sys.exit(0)
 
 def  show_eeprom_help():
     cmd =  sys.argv[0].split("/")[-1]+ " "  + args[0]
-    print  "    use \""+ cmd + " 1-56 \" to dump sfp# eeprom"
+    print  "    use \""+ cmd + " 1-54 \" to dump sfp# eeprom"
     sys.exit(0)
 
 def my_log(txt):
     if DEBUG == True:
-        print "[ROY]"+txt
+        print "[ACCTON DBG]: "+txt
     return
 
 def log_os_system(cmd, show):
     logging.info('Run :'+cmd)
+    status = 1
+    output = ""
     status, output = commands.getstatusoutput(cmd)
     my_log (cmd +"with result:" + str(status))
+    my_log ("cmd:" + cmd)
     my_log ("      output:"+output)
     if status:
         logging.info('Failed :'+cmd)
@@ -154,41 +249,33 @@ def log_os_system(cmd, show):
             print('Failed :'+cmd)
     return  status, output
 
-def driver_check():
+def driver_inserted():
     ret, lsmod = log_os_system("lsmod| grep accton", 0)
     logging.info('mods:'+lsmod)
     if len(lsmod) ==0:
         return False
-    return True
 
-def cpld_reset_mac():
-    ret, lsmod = log_os_system("i2cset -y 0 0x77 0x1", 0)
-    ret, lsmod = log_os_system("i2cset -y 0 0x71 0x2", 0)
-    ret, lsmod = log_os_system("i2cset -y 0 0x60 0x7 0xdf", 0)
-    time.sleep(1)
-    ret, lsmod = log_os_system("i2cset -y 0 0x60 0x7 0xff", 0)
-    return True
+
 
 kos = [
+'depmod -ae',
 'modprobe i2c_dev',
-'modprobe i2c_mux_pca954x force_deselect_on_exit=1',
-'modprobe accton_i2c_cpld'  ,
-'modprobe ym2651y'                  ,
-'modprobe accton_as7326_56x_fan'     ,
-'modprobe optoe'      ,
-'modprobe accton_as7326_56x_leds'      ,
-'modprobe accton_as7326_56x_psu' ]
+'modprobe i2c_mux_pca954x',
+'modprobe optoe',
+'modprobe accton_as6712_32x_cpld',
+'modprobe cpr_4011_4mxx',
+#'modprobe ym2651y',
+'modprobe accton_as6712_32x_fan',
+'modprobe leds-accton_as6712_32x',
+'modprobe accton_as6712_32x_psu']
 
 def driver_install():
     global FORCE
-    status, output = log_os_system("depmod", 1)
     for i in range(0,len(kos)):
         status, output = log_os_system(kos[i], 1)
         if status:
             if FORCE == 0:
                 return status
-    
-    status = cpld_reset_mac()
     return 0
 
 def driver_uninstall():
@@ -196,95 +283,43 @@ def driver_uninstall():
     for i in range(0,len(kos)):
         rm = kos[-(i+1)].replace("modprobe", "modprobe -rq")
         rm = rm.replace("insmod", "rmmod")
-        lst = rm.split(" ")
-        if len(lst) > 3:
-            del(lst[3])
-        rm = " ".join(lst)
         status, output = log_os_system(rm, 1)
         if status:
             if FORCE == 0:
                 return status
     return 0
 
-led_prefix ='/sys/class/leds/accton_'+PROJECT_NAME+'_led::'
-hwmon_types = {'led': ['diag','fan','loc','psu1','psu2']}
-hwmon_nodes = {'led': ['brightness'] }
-hwmon_prefix ={'led': led_prefix}
-
-i2c_prefix = '/sys/bus/i2c/devices/'
-i2c_bus = {'fan': ['11-0066']                 ,
-           'thermal': ['15-0048','15-0049', '15-004a', '15-004b'] ,
-           'psu': ['17-0051','13-0053'],
-           'sfp': ['-0050']}
-i2c_nodes = {'fan': ['present', 'front_speed_rpm', 'rear_speed_rpm'] ,
-           'thermal': ['hwmon/hwmon*/temp1_input'] ,
-           'psu': ['psu_present ', 'psu_power_good']    ,
-           'sfp': ['module_present_', 'module_tx_disable_']}
-
-sfp_map =  [
-        42,41,44,43,47,45,46,50,
-        48,49,52,51,53,56,55,54,
-        58,57,60,59,61,63,62,64,
-        66,68,65,67,69,71,72,70,
-        74,73,76,75,77,79,78,80,
-        81,82,84,85,83,87,88,86,    #port 41~48
-        25,26,27,28,29,30,31,32,    #port 49~56 QSFP
-        22,23]                      #port 57~58 SFP+ from CPU NIF.
-qsfp_start = 48
-qsfp_end   = 56
-
-#For sideband signals of SFP/QSFP modules.
-cpld_of_module = {'12-0062': list(range(0,30)),
-                  '18-0060': list(range(30,58)) }
-
-
-mknod =[
-'echo pca9548 0x77 > /sys/bus/i2c/devices/i2c-0/new_device',
-'echo pca9548 0x70 > /sys/bus/i2c/devices/i2c-1/new_device' ,
-'echo pca9548 0x71 > /sys/bus/i2c/devices/i2c-1/new_device' ,
-'echo pca9548 0x72 > /sys/bus/i2c/devices/i2c-24/new_device' ,
-'echo pca9548 0x70 > /sys/bus/i2c/devices/i2c-2/new_device' ,
-'echo pca9548 0x71 > /sys/bus/i2c/devices/i2c-33/new_device',
-'echo pca9548 0x72 > /sys/bus/i2c/devices/i2c-34/new_device',
-'echo pca9548 0x73 > /sys/bus/i2c/devices/i2c-35/new_device',
-'echo pca9548 0x74 > /sys/bus/i2c/devices/i2c-36/new_device',
-'echo pca9548 0x75 > /sys/bus/i2c/devices/i2c-37/new_device',
-'echo pca9548 0x76 > /sys/bus/i2c/devices/i2c-38/new_device',
-'echo 24c04 0x56 > /sys/bus/i2c/devices/i2c-0/new_device',
-
-'echo as7326_56x_fan 0x66 > /sys/bus/i2c/devices/i2c-11/new_device ',
-'echo lm75 0x48 > /sys/bus/i2c/devices/i2c-15/new_device',
-'echo lm75 0x49 > /sys/bus/i2c/devices/i2c-15/new_device',
-'echo lm75 0x4a > /sys/bus/i2c/devices/i2c-15/new_device',
-'echo lm75 0x4b > /sys/bus/i2c/devices/i2c-15/new_device',
-'echo as7326_56x_psu1 0x51 > /sys/bus/i2c/devices/i2c-17/new_device',
-'echo ym2651 0x59 > /sys/bus/i2c/devices/i2c-17/new_device',
-'echo as7326_56x_psu2 0x53 > /sys/bus/i2c/devices/i2c-13/new_device',
-'echo ym2651 0x5b > /sys/bus/i2c/devices/i2c-13/new_device',
-'echo as7326_56x_cpld1 0x60 > /sys/bus/i2c/devices/i2c-18/new_device',
-'echo as7326_56x_cpld2 0x62 > /sys/bus/i2c/devices/i2c-12/new_device',
-'echo as7326_56x_cpld3 0x64 > /sys/bus/i2c/devices/i2c-19/new_device']
-
-mknod2 =[
-]
-
-
+def cpld_bus_check():
+    tmp = "i2cget -y -f 0 0x60"
+    status, output = log_os_system(tmp, 0)
+    if status:
+        return 1
+    else:
+        return 0
 
 def i2c_order_check():
-    # This project has only 1 i2c bus.
-    return 0
+    # i2c bus 0 and 1 might be installed in different order.
+    # Here check if 0x70 is exist @ i2c-0
+    tmp = "echo pca9548 0x70 > /sys/bus/i2c/devices/i2c-1/new_device"
+    status, output = log_os_system(tmp, 0)
+    if not device_exist():
+        order = 1
+    else:
+        order = 0
+    tmp = "echo 0x70 > /sys/bus/i2c/devices/i2c-1/delete_device"
+    status, output = log_os_system(tmp, 0)
+    return order
 
 def device_install():
     global FORCE
 
     order = i2c_order_check()
-
-    # if 0x70 is not exist @i2c-1, use reversed bus order
+    # if 0x76 is not exist @i2c-0, use reversed bus order
     if order:
         for i in range(0,len(mknod2)):
-            #for pca954x need times to built new i2c buses
+            #for pca932x need times to built new i2c buses
             if mknod2[i].find('pca954') != -1:
-               time.sleep(1)
+               time.sleep(2)
 
             status, output = log_os_system(mknod2[i], 1)
             if status:
@@ -293,30 +328,34 @@ def device_install():
                     return status
     else:
         for i in range(0,len(mknod)):
-            #for pca954x need times to built new i2c buses
+            #for pca932x need times to built new i2c buses
             if mknod[i].find('pca954') != -1:
-               time.sleep(1)
+               time.sleep(2)
 
             status, output = log_os_system(mknod[i], 1)
             if status:
                 print output
                 if FORCE == 0:
                     return status
+         
     for i in range(0,len(sfp_map)):
-        if i < qsfp_start or i >= qsfp_end:
-            status, output =log_os_system("echo optoe2 0x50 > /sys/bus/i2c/devices/i2c-"+str(sfp_map[i])+"/new_device", 1)
-        else:
-            status, output =log_os_system("echo optoe1 0x50 > /sys/bus/i2c/devices/i2c-"+str(sfp_map[i])+"/new_device", 1)
+        status, output =log_os_system("echo optoe1 0x50 > /sys/bus/i2c/devices/i2c-"+str(sfp_map[i])+"/new_device", 1)
         if status:
             print output
             if FORCE == 0:
                 return status
+        status, output =log_os_system("echo port"+str(i)+" > /sys/bus/i2c/devices/"+str(sfp_map[i])+"-0050/port_name", 1)
+        if status:
+            print output
+            if FORCE == 0:
+                return status
+   
     return
 
 def device_uninstall():
     global FORCE
 
-    status, output =log_os_system("ls /sys/bus/i2c/devices/1-0076", 0)
+    status, output =log_os_system("ls /sys/bus/i2c/devices/0-0070", 0)
     if status==0:
         I2C_ORDER=1
     else:
@@ -349,7 +388,7 @@ def device_uninstall():
     return
 
 def system_ready():
-    if driver_check() == False:
+    if driver_inserted() == False:
         return False
     if not device_exist():
         return False
@@ -357,7 +396,7 @@ def system_ready():
 
 def do_install():
     print "Checking system...."
-    if driver_check() == False:
+    if driver_inserted() == False:
         print "No driver, installing...."
         status = driver_install()
         if status:
@@ -386,7 +425,7 @@ def do_uninstall():
             if FORCE == 0:
                 return  status
 
-    if driver_check()== False :
+    if driver_inserted()== False :
         print PROJECT_NAME.upper() +" has no driver installed...."
     else:
         print "Removing installed driver...."
@@ -406,6 +445,7 @@ def devices_info():
         for i in range(0,DEVICE_NO[key]):
             ALL_DEVICE[key][key+str(i+1)] = []
 
+    order = cpld_bus_check()
     for key in i2c_bus:
         buses = i2c_bus[key]
         nodes = i2c_nodes[key]
@@ -421,9 +461,9 @@ def devices_info():
                     for k in range(0,DEVICE_NO[key]):
                         for lk in cpld_of_module:
                             if k in cpld_of_module[lk]:
-                                 cpld_str = lk
+                                 bus = bus_of_cpld[order]
                                  node = key+str(k+1)
-                                 path = i2c_prefix+ lk + "/"+ nodes[j] + str(k+1)
+                                 path = i2c_prefix + str(bus) + lk + "/"+ nodes[j] + str(k+1) 
                                  my_log(node+": "+ path)
                                  ALL_DEVICE[key][node].append(path)
                 else:
@@ -510,8 +550,8 @@ def set_device(args):
             return
         #print  ALL_DEVICE['fan']
         #fan1~6 is all fine, all fan share same setting
-        node = ALL_DEVICE['fan'] ['fan1'][0]
-        node = node.replace(node.split("/")[-1], 'fan_duty_cycle_percentage')
+        node = ALL_DEVICE['fan1'] ['fan11'][0]
+        node = node.replace(node.split("/")[-1], 'fan1_duty_cycle_percentage')
         ret, log = log_os_system("cat "+ node, 1)
         if ret==0:
             print ("Previous fan duty: " + log.strip() +"%")
@@ -538,6 +578,7 @@ def set_device(args):
                     ret, log = log_os_system("echo "+args[2]+" >"+ j, 1)
                     if ret:
                         return ret
+
     return
 
 #get digits inside a string.
@@ -572,6 +613,7 @@ def device_traversal():
                     print func+"="+"X"+" ",
             print
             print("----------------------------------------------------------------")
+
 
         print
     return

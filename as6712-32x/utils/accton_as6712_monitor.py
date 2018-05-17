@@ -20,7 +20,7 @@
 #    mm/dd/yyyy (A.D.)
 #    11/13/2017: Polly Hsu, Create
 #    1/10/2018: Jostar modify for as7716_32
-#    3/23/2018: Roy Lee modify for as7326_56x
+#    4/10/2018: Roy Lee modify for as6712_32x
 # ------------------------------------------------------------------
 
 try:
@@ -35,29 +35,29 @@ try:
     import time  # this is only being used as part of the example
     import traceback
     from tabulate import tabulate
-    from as7326_56x.fanutil import FanUtil
-    from as7326_56x.thermalutil import ThermalUtil
+    from as6712_32x.fanutil import FanUtil
+    from as6712_32x.thermalutil import ThermalUtil
 except ImportError as e:
     raise ImportError('%s - required module not found' % str(e))
 
 # Deafults
 VERSION = '1.0'
-FUNCTION_NAME = 'accton_as7326_monitor'
+FUNCTION_NAME = 'accton_as6712_monitor'
 
 global log_file
 global log_level
 
 #   (LM75_1+ LM75_2+ LM75_3) is LM75 at i2c addresses 0x48, 0x49, and 0x4A.
 #   TMP = (LM75_1+ LM75_2+ LM75_3)/3
-#1. If TMP < 35, All fans run with duty 31.25%.
+#1. If TMP < 35, All fans run with duty 30%.
 #2. If TMP>=35 or the temperature of any one of fan is higher than 40,
 #   All fans run with duty 50%
 #3. If TMP >= 40 or the temperature of any one of fan is higher than 45,
-#   All fans run with duty 62.5%.
+#   All fans run with duty 65%.
 #4. If TMP >= 45 or the temperature of any one of fan is higher than 50,
 #   All fans run with duty 100%.
-#5. Any one of 6 fans is fault, set duty = 100%.
-#6. Direction factor. If it is B2F direction, duty + 12%.
+#5. Any one of 5 fans is fault, set duty = 100%.
+#6. Direction factor. If it is B2F direction, duty + 10%.
 
  # MISC:
  # 1.Check single LM75 before applied average.
@@ -70,7 +70,7 @@ global log_level
 
      
 # Make a class we can use to capture stdout and sterr in the log
-class accton_as7326_monitor(object):
+class accton_as6712_monitor(object):
     # static temp var
     _ori_temp = 0
     _new_perc = 0
@@ -100,14 +100,14 @@ class accton_as7326_monitor(object):
     def manage_fans(self):
         max_duty = 100
         fan_policy_f2b = {
-           0: [32, 0,      105000],
+           0: [30, 0,      105000],
            1: [50, 105000, 120000],
-           2: [63, 120000, 135000],
+           2: [65, 120000, 135000],
            3: [max_duty, 135000, sys.maxsize],
         }
         fan_policy_b2f = {
-           0: [44, 0,      105000],
-           1: [63, 105000, 120000],
+           0: [40, 0,      105000],
+           1: [60, 105000, 120000],
            2: [75, 120000, 135000],
            3: [max_duty, 135000, sys.maxsize],
         }
@@ -131,7 +131,7 @@ class accton_as7326_monitor(object):
             #logging.debug('INFO. fan_status is True (fan_num:%d)', x)
  
         fan_dir=fan.get_fan_dir(1)
-        if fan_dir == 1:
+        if fan_dir == 0:
             fan_policy = fan_policy_f2b
         else:
             fan_policy = fan_policy_b2f
@@ -164,7 +164,7 @@ class accton_as7326_monitor(object):
         new_duty_cycle = cur_duty_cycle
         for x in range(0, len(fan_policy)):
             y = len(fan_policy) - x -1 #checked from highest
-            if get_temp > fan_policy[y][1] and get_temp < fan_policy[y][2] :
+            if get_temp > fan_policy[y][1] and get_temp <= fan_policy[y][2] :
                 new_duty_cycle= fan_policy[y][0]
                 logging.debug('INFO. Sum of temp %d > %d , new_duty_cycle=%d', get_temp, fan_policy[y][1], new_duty_cycle)
 
@@ -197,7 +197,7 @@ def main(argv):
             elif opt in ('-l', '--lfile'):
                 log_file = arg
 
-    monitor = accton_as7326_monitor(log_file, log_level)
+    monitor = accton_as6712_monitor(log_file, log_level)
 
     # Loop forever, doing something useful hopefully:
     while True:
