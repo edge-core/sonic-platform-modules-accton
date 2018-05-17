@@ -125,9 +125,13 @@ enum sysfs_fan_attributes {
 
 /* Define attributes
  */
-#define DECLARE_FAN_FAULT_SENSOR_DEV_ATTR(index) \
-    static SENSOR_DEVICE_ATTR(fan##index##_fault, S_IRUGO, fan_show_value, NULL, FAN##index##_FAULT)
-#define DECLARE_FAN_FAULT_ATTR(index)      &sensor_dev_attr_fan##index##_fault.dev_attr.attr
+#define DECLARE_FAN_FAULT_SENSOR_DEV_ATTR(index, index2) \
+    static SENSOR_DEVICE_ATTR(fan##index##_fault, S_IRUGO, fan_show_value, NULL, FAN##index##_FAULT);\
+    static SENSOR_DEVICE_ATTR(fan##index2##_fault, S_IRUGO, fan_show_value, NULL, FAN##index##_FAULT)
+
+#define DECLARE_FAN_FAULT_ATTR(index, index2)      &sensor_dev_attr_fan##index##_fault.dev_attr.attr, \
+                                           &sensor_dev_attr_fan##index2##_fault.dev_attr.attr
+
 
 #define DECLARE_FAN_DIRECTION_SENSOR_DEV_ATTR(index) \
     static SENSOR_DEVICE_ATTR(fan##index##_direction, S_IRUGO, fan_show_value, NULL, FAN##index##_DIRECTION)
@@ -146,11 +150,15 @@ enum sysfs_fan_attributes {
     static SENSOR_DEVICE_ATTR(fan##index##_present, S_IRUGO, fan_show_value, NULL, FAN##index##_PRESENT)
 #define DECLARE_FAN_PRESENT_ATTR(index)      &sensor_dev_attr_fan##index##_present.dev_attr.attr
 
-#define DECLARE_FAN_SPEED_RPM_SENSOR_DEV_ATTR(index) \
+#define DECLARE_FAN_SPEED_RPM_SENSOR_DEV_ATTR(index, index2) \
     static SENSOR_DEVICE_ATTR(fan##index##_front_speed_rpm, S_IRUGO, fan_show_value, NULL, FAN##index##_FRONT_SPEED_RPM);\
-    static SENSOR_DEVICE_ATTR(fan##index##_rear_speed_rpm, S_IRUGO, fan_show_value, NULL, FAN##index##_REAR_SPEED_RPM)
-#define DECLARE_FAN_SPEED_RPM_ATTR(index)  &sensor_dev_attr_fan##index##_front_speed_rpm.dev_attr.attr, \
-                                           &sensor_dev_attr_fan##index##_rear_speed_rpm.dev_attr.attr
+    static SENSOR_DEVICE_ATTR(fan##index##_rear_speed_rpm, S_IRUGO, fan_show_value, NULL, FAN##index##_REAR_SPEED_RPM);\
+    static SENSOR_DEVICE_ATTR(fan##index##_input, S_IRUGO, fan_show_value, NULL, FAN##index##_FRONT_SPEED_RPM);\
+    static SENSOR_DEVICE_ATTR(fan##index2##_input, S_IRUGO, fan_show_value, NULL, FAN##index##_REAR_SPEED_RPM)
+#define DECLARE_FAN_SPEED_RPM_ATTR(index, index2)  &sensor_dev_attr_fan##index##_front_speed_rpm.dev_attr.attr, \
+                                           &sensor_dev_attr_fan##index##_rear_speed_rpm.dev_attr.attr, \
+                                           &sensor_dev_attr_fan##index##_input.dev_attr.attr, \
+                                           &sensor_dev_attr_fan##index2##_input.dev_attr.attr
 
 /* 6 fan fault attributes in this platform */
 DECLARE_FAN_FAULT_SENSOR_DEV_ATTR(1,11);
@@ -188,18 +196,18 @@ DECLARE_FAN_SYSTEM_TEMP_SENSOR_DEV_ATTR();
 
 static struct attribute *as7726_32x_fan_attributes[] = {
     /* fan related attributes */
-    DECLARE_FAN_FAULT_ATTR(1),
-    DECLARE_FAN_FAULT_ATTR(2),
-    DECLARE_FAN_FAULT_ATTR(3),
-    DECLARE_FAN_FAULT_ATTR(4),
-    DECLARE_FAN_FAULT_ATTR(5),
-    DECLARE_FAN_FAULT_ATTR(6),
-    DECLARE_FAN_SPEED_RPM_ATTR(1),
-    DECLARE_FAN_SPEED_RPM_ATTR(2),
-    DECLARE_FAN_SPEED_RPM_ATTR(3),
-    DECLARE_FAN_SPEED_RPM_ATTR(4),
-    DECLARE_FAN_SPEED_RPM_ATTR(5),
-    DECLARE_FAN_SPEED_RPM_ATTR(6),
+    DECLARE_FAN_FAULT_ATTR(1,11),
+    DECLARE_FAN_FAULT_ATTR(2,12),
+    DECLARE_FAN_FAULT_ATTR(3,13),
+    DECLARE_FAN_FAULT_ATTR(4,14),
+    DECLARE_FAN_FAULT_ATTR(5,15),
+    DECLARE_FAN_FAULT_ATTR(6,16),
+    DECLARE_FAN_SPEED_RPM_ATTR(1,11),
+    DECLARE_FAN_SPEED_RPM_ATTR(2,12),
+    DECLARE_FAN_SPEED_RPM_ATTR(3,13),
+    DECLARE_FAN_SPEED_RPM_ATTR(4,14),
+    DECLARE_FAN_SPEED_RPM_ATTR(5,15),
+    DECLARE_FAN_SPEED_RPM_ATTR(6,16),
     DECLARE_FAN_PRESENT_ATTR(1),
     DECLARE_FAN_PRESENT_ATTR(2),
     DECLARE_FAN_PRESENT_ATTR(3),
@@ -569,9 +577,7 @@ static ssize_t fan_show_value(struct device *dev, struct device_attribute *da,
     struct as7726_32x_fan_data *data = as7726_32x_fan_update_device(dev);
     ssize_t ret = 0;
     
-//    printk("fan_show_value, attr->index=%d\n",attr->index);
     if (data->valid) {
-//        printk("data->valid\n");
         switch (attr->index) {
         case FAN_DUTY_CYCLE_PERCENTAGE:
         {
