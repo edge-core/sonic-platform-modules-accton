@@ -161,7 +161,138 @@ def driver_check():
         return False
     return True
 
+def set_8v89307():
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x2D 0x00", 0)#Select to Page 0
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x7F 0x05", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x7E 0x85", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x7B 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x7A 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x79 0x40", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x78 0x06", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x73 0x40", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x72 0x40", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x71 0x0A", 0) # OUT3:25MHz
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x70 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x6B 0x4E", 0) # OUT1:1pps
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x69 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x68 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x67 0x19", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x66 0xAB", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x65 0x8C", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x64 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x63 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x62 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x5F 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x5E 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x5D 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x5C 0x78", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x5B 0x02", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x5A 0xE5", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x59 0x88", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x58 0x4B", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x57 0x6C", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x56 0x6C", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x55 0x80", 0) # Lock to DPLL, output 625MHz
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x53 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x52 0x81", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x50 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x4F 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x4E 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x4C 0xCB", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x4A 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x45 0x66", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x44 0x66", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x42 0x80", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x41 0x03", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x40 0x01", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x3F 0x08", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x3E 0x04", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x3D 0x20", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x3C 0x13", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x3B 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x3A 0x98", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x39 0x01", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x38 0xE6", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x37 0x04", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x36 0xCE", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x35 0x7C", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x34 0x01", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x33 0x08", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x32 0x08", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x31 0x08", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x30 0x03", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x2F 0x23", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x2E 0x0B", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x2D 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x28 0x76", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x27 0x54", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x25 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x24 0x03", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x23 0x06", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x1A 0x8C", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x19 0x8C", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x18 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x16 0x0D", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x11 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x10 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x0E 0x3F", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x0D 0xFF", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x0C 0x02", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x0B 0xA1", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x0A 0x89", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x09 0xA2", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x08 0x32", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x06 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x05 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x04 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x03 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x02 0x05", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x01 0x33", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x00 0x91", 0)
+
+    # PreDivider_Parameters
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x23 0x05", 0) #IN1
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x24 0x03", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x25 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x23 0x06", 0) #IN2
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x24 0x03", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x25 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x23 0x03", 0) #IN3
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x24 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x25 0x00", 0)
+
+    # Page1_Parameters
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x2D 0x01", 0)#Select to Page 1
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x30 0x03", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x31 0x08", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x32 0x08", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x33 0x08", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x35 0x7C", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x36 0xCE", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x37 0x04", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x38 0xE6", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x39 0x01", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x3A 0x98", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x3B 0x00", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x3C 0x13", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x3D 0x20", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x54 0x2D 0x00", 0)#Return to Page 0
+
+    #reset the in-path mux
+    ret, lsmod = log_os_system("i2cset -y 0 0x70 0x0", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x77 0x0", 0)
+
+	
 def cpld_reset_mac():
+    ret, lsmod = log_os_system("i2cset -y 0 0x77 0x1", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x70 0x1", 0)
+    ret, lsmod = log_os_system("i2cget -y 0 0x54 0 b", 0)
+    if (ret):
+        #printf "Device 8v89307(0x54) not found"
+        return True
+
+    set_8v89307()
+    #flip MAC reset at CPLD
     ret, lsmod = log_os_system("i2cset -y 0 0x77 0x1", 0)
     ret, lsmod = log_os_system("i2cset -y 0 0x71 0x2", 0)
     ret, lsmod = log_os_system("i2cset -y 0 0x60 0x7 0xdf", 0)
@@ -181,6 +312,11 @@ kos = [
 
 def driver_install():
     global FORCE
+    
+    #reset MAC and IDT 82V89307
+    status, output = log_os_system('modprobe i2c_dev', 1)
+    status = cpld_reset_mac()
+
     status, output = log_os_system("depmod", 1)
     for i in range(0,len(kos)):
         status, output = log_os_system(kos[i], 1)
@@ -188,7 +324,7 @@ def driver_install():
             if FORCE == 0:
                 return status
     
-    status = cpld_reset_mac()
+
     return 0
 
 def driver_uninstall():
