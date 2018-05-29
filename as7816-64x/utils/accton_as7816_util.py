@@ -156,7 +156,7 @@ def driver_check():
 
 kos = [
 'modprobe i2c_dev',
-'modprobe i2c_mux_pca954x',
+'modprobe i2c_mux_pca954x force_deselect_on_exit=1',
 'modprobe accton_i2c_cpld'  ,
 'modprobe ym2651y'                  ,
 'modprobe x86-64-accton-as7816-64x-fan'     ,
@@ -179,6 +179,10 @@ def driver_uninstall():
     for i in range(0,len(kos)):
         rm = kos[-(i+1)].replace("modprobe", "modprobe -rq")
         rm = rm.replace("insmod", "rmmod")        
+        lst = rm.split(" ")
+        if len(lst) > 3:
+            del(lst[3])
+        rm = " ".join(lst)
         status, output = log_os_system(rm, 1)
         if status:
             if FORCE == 0:        
