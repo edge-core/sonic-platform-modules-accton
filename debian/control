@@ -40,12 +40,11 @@ Architecture: amd64
 Depends: linux-image-3.16.0-5-amd64
 Description: kernel modules for platform devices such as fan, led, sfp
 
-<<<<<<< HEAD
 Package: sonic-platform-accton-as7726-32x
 Architecture: amd64
 Depends: linux-image-3.16.0-5-amd64
 Description: kernel modules for platform devices such as fan, led, sfp
-=======
+
 Package: sonic-platform-accton-as6712-32x
 Architecture: amd64
 Depends: linux-image-3.16.0-5-amd64
@@ -55,4 +54,3 @@ Package: sonic-platform-accton-wedge100bf-65x
 Architecture: amd64
 Depends: linux-image-3.16.0-5-amd64
 Description: kernel modules for platform devices such as fan, led, sfp
->>>>>>> 82fcdf9e7a1e10de23ba661af775295b557b23f0
