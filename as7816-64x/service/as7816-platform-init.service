@@ -1,13 +1,17 @@
 [Unit]
-Description=Accton AS7816-64X Platform initialization service
+Description=Accton AS7816-56X Platform Monitoring service
 Before=pmon.service
+After=sysinit.target
 DefaultDependencies=no
 
 [Service]
-Type=oneshot
-ExecStart=/usr/local/bin/accton_as7816_util.py install
-ExecStop=/usr/local/bin/accton_as7816_util.py clean
-RemainAfterExit=yes
+ExecStartPre=/usr/local/bin/accton_as7816_util.py install
+ExecStart=/usr/local/bin/accton_as7816_monitor.py
+KillSignal=SIGKILL
+SuccessExitStatus=SIGKILL
+
+# Resource Limitations
+LimitCORE=infinity
 
 [Install]
 WantedBy=multi-user.target
