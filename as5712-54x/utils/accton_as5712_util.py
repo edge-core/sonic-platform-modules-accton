@@ -80,6 +80,8 @@ i2c_nodes = {
            'psu': ['psu_present ', 'psu_power_good']    ,
            'sfp': ['sfp_is_present ', 'sfp_tx_disable']}
 
+qsfp_start = 48
+
 sfp_map =  [2, 3, 4, 5, 6, 7, 8, 9, 10,
             11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
             21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
@@ -318,7 +320,10 @@ def device_install():
                     return status
          
     for i in range(0,len(sfp_map)):
-        status, output =log_os_system("echo optoe1 0x50 > /sys/bus/i2c/devices/i2c-"+str(sfp_map[i])+"/new_device", 1)
+	if i < qsfp_start:
+            status, output =log_os_system("echo optoe2 0x50 > /sys/bus/i2c/devices/i2c-"+str(sfp_map[i])+"/new_device", 1)
+        else:
+            status, output =log_os_system("echo optoe1 0x50 > /sys/bus/i2c/devices/i2c-"+str(sfp_map[i])+"/new_device", 1)
         if status:
             print output
             if FORCE == 0:
