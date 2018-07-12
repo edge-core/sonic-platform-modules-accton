@@ -50,16 +50,25 @@
 #endif
 
 #define DRVNAME "wedge_psensor"     /*Platform Sensor*/
-enum model_type {
-    BF100_65X = 0,
-    BF100_32X = 1,
+enum mtype {
+    MTYPE_BF100_65X = 0,
+    MTYPE_BF100_32X = 1,
+    MTYPE_MAX,
 };
 
 #define SENSOR_DATA_UPDATE_INTERVAL     (5*HZ)
-#define CHASSIS_THERMAL_COUNT 8
-#define CHASSIS_FAN_COUNT     10
-#define CHASSIS_PSU_CHAR_COUNT     2    /*2 for input and output.*/
-#define CHASSIS_LED_COUNT     2
+#define MAX_THERMAL_COUNT (8)
+#define MAX_FAN_COUNT     (10)
+#define CHASSIS_PSU_CHAR_COUNT     (2)    /*2 for input and output.*/
+#define CHASSIS_LED_COUNT     (2)
+
+#define BF100_65X_THERMAL_COUNT  MAX_THERMAL_COUNT
+#define BF100_65X_FAN_COUNT      MAX_FAN_COUNT
+
+#define BF100_32X_THERMAL_COUNT  (7)
+#define BF100_32X_FAN_COUNT      MAX_FAN_COUNT
+
+
 
 #define ATTR_ALLOC_EXTRA	        1   /*For last attribute which is NUll.*/
 #define ATTR_NAME_SIZE		        24
@@ -67,7 +76,7 @@ enum model_type {
 #define ATTR_MAX_LIST   		    8
 
 #define TTY_DEVICE                      "/dev/ttyACM0"
-#define TTY_PROMPT                      "@bmc:"
+#define TTY_PROMPT                      "@bmc"
 #define TTY_USER                        "root"
 #define TTY_PASSWORD                    "0penBmc"
 #define TTY_BAUDRATE                    (57600)
@@ -83,8 +92,8 @@ enum model_type {
 #define TTY_CMD_MAX_LEN          (64)
 #define TTY_READ_MAX_LEN        (256)
 
-#define TTY_RESP_SEPARATOR      '|'
-
+#define TTY_RESP_SEPARATOR      '|'     /*For the ease to debug*/
+#define MAX_ATTR_PATTERN        (3)
 
 enum sensor_type {
     SENSOR_TYPE_THERMAL_IN = 0,
@@ -121,19 +130,19 @@ struct pmbus_reg {
     u8   addr;
     bool power;     /*power attribute is in unit of uW instead of mW.*/
 } pmbus_regs[] = {
-    [PSU_DATA_VIN ] = {PMBUS_READ_VIN , false},
+    [PSU_DATA_VIN ] = {PMBUS_READ_VIN, false},
     [PSU_DATA_VOUT] = {PMBUS_READ_VOUT, false},
-    [PSU_DATA_IIN ] = {PMBUS_READ_IIN , false},
+    [PSU_DATA_IIN ] = {PMBUS_READ_IIN, false},
     [PSU_DATA_IOUT] = {PMBUS_READ_IOUT, false},
-    [PSU_DATA_PIN ] = {PMBUS_READ_PIN , true},
+    [PSU_DATA_PIN ] = {PMBUS_READ_PIN, true},
     [PSU_DATA_POUT] = {PMBUS_READ_POUT, true},
 };
 
 
 struct sensor_data {
-    int lm75_input[CHASSIS_THERMAL_COUNT];
-    int fan_rpm[CHASSIS_FAN_COUNT];
-    int fan_rpm_dn[CHASSIS_FAN_COUNT];
+    int lm75_input[MAX_THERMAL_COUNT];
+    int fan_rpm[MAX_FAN_COUNT];
+    int fan_rpm_dn[MAX_FAN_COUNT];
     int psu1_data [PSU_DATA_MAX];
     int psu2_data [PSU_DATA_MAX];
     int led_bright[CHASSIS_LED_COUNT];
@@ -202,37 +211,39 @@ struct attr_pattern {
 };
 
 struct sensor_set {
-    enum sensor_type type;
     int  total;                             /*How many attr of this type*/
     int  start_index;
     int  ptn_cnt;
-    struct attr_pattern ptn[3];
-} sensor_sets[] = {
-    {   SENSOR_TYPE_THERMAL_IN,
-        CHASSIS_THERMAL_COUNT, INDEX_THRM_IN_START,
+    struct attr_pattern ptn[MAX_ATTR_PATTERN];
+};
+
+struct sensor_set ss_w100_65x[SENSOR_TYPE_MAX] =
+{
+    [SENSOR_TYPE_THERMAL_IN] = {
+        BF100_65X_THERMAL_COUNT, INDEX_THRM_IN_START,
         1,
-        {   [0] = {CHASSIS_THERMAL_COUNT, 0, "temp","_input",
+        {   [0] = {BF100_65X_THERMAL_COUNT, 0, "temp","_input",
                 S_IRUGO, show_thermal, NULL
             },
         }
     },
-    {   SENSOR_TYPE_FAN_RPM,
-        CHASSIS_FAN_COUNT, INDEX_FAN_RPM_START,
+    [SENSOR_TYPE_FAN_RPM] = {
+        BF100_65X_FAN_COUNT, INDEX_FAN_RPM_START,
         1,
-        {   [0] = {CHASSIS_FAN_COUNT, 0, "fan","_input",
+        {   [0] = {BF100_65X_FAN_COUNT, 0, "fan","_input",
                 S_IRUGO, show_fan, NULL
             },
         }
     },
-    {   SENSOR_TYPE_FAN_RPM_DOWN,
-        CHASSIS_FAN_COUNT, INDEX_FAN_RPM_START_DN,
+    [SENSOR_TYPE_FAN_RPM_DOWN] = {
+        BF100_65X_FAN_COUNT, INDEX_FAN_RPM_START_DN,
         1,
-        {   [0] = {CHASSIS_FAN_COUNT, CHASSIS_FAN_COUNT, "fan","_input",
+        {   [0] = {BF100_65X_FAN_COUNT, MAX_FAN_COUNT, "fan","_input",
                 S_IRUGO, show_fan_dn, NULL
             },
         }
     },
-    {   SENSOR_TYPE_PSU1,
+    [SENSOR_TYPE_PSU1] = {
         PSU_DATA_MAX, INDEX_PSU1_START,
         3,
         {   [0] ={CHASSIS_PSU_CHAR_COUNT, 0, "in","_input",
@@ -248,7 +259,7 @@ struct sensor_set {
             },
         }
     },
-    {   SENSOR_TYPE_PSU2,
+    [SENSOR_TYPE_PSU2] = {
         PSU_DATA_MAX, INDEX_PSU2_START,
         3,
         {   [0] ={CHASSIS_PSU_CHAR_COUNT, CHASSIS_PSU_CHAR_COUNT, "in","_input",
@@ -266,8 +277,63 @@ struct sensor_set {
     },
 };
 
+struct sensor_set ss_w100_32x[SENSOR_TYPE_MAX] =
+{
+    [SENSOR_TYPE_THERMAL_IN] = {
+        BF100_32X_THERMAL_COUNT, INDEX_THRM_IN_START,
+        1,
+        {   [0] = {BF100_32X_THERMAL_COUNT, 0, "temp","_input",
+                S_IRUGO, show_thermal, NULL
+            },
+        }
+    },
+    [SENSOR_TYPE_FAN_RPM] = {
+        BF100_32X_FAN_COUNT, INDEX_FAN_RPM_START,
+        1,
+        {   [0] = {BF100_32X_FAN_COUNT, 0, "fan","_input",
+                S_IRUGO, show_fan, NULL
+            },
+        }
+    },
+    [SENSOR_TYPE_FAN_RPM_DOWN] = {0},
+    [SENSOR_TYPE_PSU1] = {
+        PSU_DATA_MAX, INDEX_PSU1_START,
+        3,
+        {   [0] ={CHASSIS_PSU_CHAR_COUNT, 0, "in","_input",
+                S_IRUGO, show_psu1, NULL
+            },
+            [1] ={
+                CHASSIS_PSU_CHAR_COUNT, 0, "curr","_input",
+                S_IRUGO, show_psu1, NULL
+            },
+            [2] ={
+                CHASSIS_PSU_CHAR_COUNT, 0, "power","_input",
+                S_IRUGO, show_psu1, NULL
+            },
+        }
+    },
+    [SENSOR_TYPE_PSU2] = {
+        PSU_DATA_MAX, INDEX_PSU2_START,
+        3,
+        {   [0] ={CHASSIS_PSU_CHAR_COUNT, CHASSIS_PSU_CHAR_COUNT, "in","_input",
+                S_IRUGO, show_psu2, NULL
+            },
+            [1] ={
+                CHASSIS_PSU_CHAR_COUNT, CHASSIS_PSU_CHAR_COUNT, "curr","_input",
+                S_IRUGO, show_psu2, NULL
+            },
+            [2] ={
+                CHASSIS_PSU_CHAR_COUNT, CHASSIS_PSU_CHAR_COUNT, "power","_input",
+                S_IRUGO, show_psu2, NULL
+            },
+        }
+    },
+};
+
+struct sensor_set *model_ssets[SENSOR_TYPE_MAX] = {ss_w100_65x, ss_w100_32x};
+
 static char tty_cmd[SENSOR_TYPE_MAX][TTY_CMD_MAX_LEN] = {
-    "cat /sys/bus/i2c/drivers/*/*/temp*_input\r\n",
+    "cat /sys/class/hwmon/hwmon*/temp1_input\r\n",
     "cat /sys/bus/i2c/devices/8-0033/fan*_input\r\n",
     "cat /sys/bus/i2c/devices/9-0033/fan*_input\r\n",
     "i2cset -y 7 0x70 0 2; i2cdump -y -r "\
@@ -281,10 +347,10 @@ static char tty_cmd[SENSOR_TYPE_MAX][TTY_CMD_MAX_LEN] = {
 static struct wedge100_data *wedge_data = NULL;
 
 
-/* Specify which model is engaged. Default is BF100_65X. */
-static enum model_type dut_model = BF100_65X;
-module_param(dut_model, uint, S_IRUGO);
-MODULE_PARM_DESC(dut_model, "Default is BF100_65X.");
+/* Specify which model_id is engaged. Default is BF100_65X. */
+static int model_id = MTYPE_BF100_65X;
+module_param(model_id, uint, S_IRUGO);
+MODULE_PARM_DESC(model_id, "Default is BF100_65X.");
 
 static int _tty_wait(struct file *tty_fd, int mdelay) {
     msleep(mdelay);
@@ -374,7 +440,7 @@ static int _tty_rx(struct file *tty_fd, char *buf, int max_len)
     }
 
     /*Clear for remained data cause ambiguous string*/
-    memset(buf, 0 , max_len);
+    memset(buf, 0, max_len);
     do {
         rc = tty_fd->f_op->read(tty_fd, buf, max_len, 0);
         if (rc == 0) {  /*Buffer Empty, waits. */
@@ -407,7 +473,7 @@ static int _tty_clear_rxbuf(struct file *tty_fd) {
     do {
         _tty_wait(tty_fd, 0);
         rc = tty_fd->f_op->read(tty_fd, buf, sizeof(buf), 0);
-        memset(buf, 0 , sizeof(buf));
+        memset(buf, 0, sizeof(buf));
     } while (rc > 0);
 
     set_fs(old_fs);
@@ -480,7 +546,8 @@ static int _tty_login(struct file *tty_fd)
             return 0;
 
         DEBUG_INTR("%s-%d, tty_buf:%s\n", __func__, __LINE__, buf);
-        if (strstr(buf, "bmc login:") != NULL)
+        if ((strstr(buf, "bmc") != NULL) &&
+                (strstr(buf, "login:") != NULL))
         {
             ret = _tty_writeNread(tty_fd, TTY_USER"\r",
                                   buf, sizeof(buf), TTY_LOGIN_RETRY_INTV);
@@ -568,8 +635,9 @@ static void dev_attr_init(struct device_attribute *dev_attr,
 /*Allowcat sensor_device_attributes and adds them to a group.*/
 static int attributs_init(struct wedge100_data *data)
 {
-    int start, pi, si, ai, num, ret, acc;
+    struct sensor_set *model = model_ssets[model_id];
     char name[64] = {0};
+    int start, pi, si, ai, num, ret, acc;
     struct wedge_sensor *sensor;
     struct sensor_device_attribute *sensor_dattr;
     struct device_attribute *dev_attr;
@@ -588,9 +656,9 @@ static int attributs_init(struct wedge100_data *data)
         return ret;
 
     /*types*/
-    for (si = 0; si < ARRAY_SIZE(sensor_sets); si++)
+    for (si = 0; si < SENSOR_TYPE_MAX; si++)
     {
-        struct sensor_set *ss = &sensor_sets[si];
+        struct sensor_set *ss = model+si;
         int ptn_cnt = ss->ptn_cnt;
         num = ss->total;
         start = ss->start_index;
@@ -760,9 +828,10 @@ static int comm2BMC(enum sensor_type type, int *out, int out_cnt)
 
     if (out == NULL)
         return -EINVAL;
+    if (out_cnt == 0)
+        return 0;
 
     snprintf(cmd, sizeof(cmd), tty_cmd[type]);
-
     DEBUG_INTR("%s-%d, cmd:%s\n", __func__, __LINE__, cmd);
     ret = bmc_transaction(cmd, resp, sizeof(resp)-1);
     if (ret < 0)
@@ -802,30 +871,28 @@ static int get_type_data (
     struct sensor_data *data, enum sensor_type type, int index,
     int **out, int *count)
 {
+    struct sensor_set *model = model_ssets[model_id];
+
     switch (type) {
     case SENSOR_TYPE_THERMAL_IN:
         *out = &data->lm75_input[index];
-        *count = ARRAY_SIZE(data->lm75_input);
         break;
     case SENSOR_TYPE_FAN_RPM:
         *out = &data->fan_rpm[index];
-        *count = ARRAY_SIZE(data->fan_rpm);
         break;
     case SENSOR_TYPE_FAN_RPM_DOWN:
         *out = &data->fan_rpm_dn[index];
-        *count = ARRAY_SIZE(data->fan_rpm_dn);
         break;
     case SENSOR_TYPE_PSU1:
         *out = &data->psu1_data[index];
-        *count = ARRAY_SIZE(data->psu1_data);
         break;
     case SENSOR_TYPE_PSU2:
         *out = &data->psu2_data[index];
-        *count = ARRAY_SIZE(data->psu2_data);
         break;
     default:
         return -EINVAL;
     }
+    *count = model[type].total;
     return 0;
 }
 
@@ -847,7 +914,7 @@ update_data(struct device *dev, enum sensor_type type) {
             goto exit_err;
 
         DEBUG_INTR("%s-%d, type:%d cnt:%d\n", __func__, __LINE__, type, data_cnt);
-        rc = comm2BMC(type, data_ptr ,data_cnt);
+        rc = comm2BMC(type, data_ptr, data_cnt);
         if (rc < 0) {
             *valid = 0;
             /*Clear data if failed.*/
