@@ -48,6 +48,8 @@
 #else
 #define DEBUG_INTR(fmt...)	do { } while (0)
 #endif
+#define DEBUG_LEX(fmt, ...)	    do { } while (0)
+
 
 #define DRVNAME "wedge_psensor"     /*Platform Sensor*/
 enum mtype {
@@ -460,10 +462,9 @@ static int _tty_rx(struct file *tty_fd, char *buf, int max_len)
 }
 
 /*Clear Rx buffer by reading it out.*/
-static int _tty_clear_rxbuf(struct file *tty_fd) {
+static int _tty_clear_rxbuf(struct file *tty_fd, char* buf, size_t max_size) {
     int rc;
     mm_segment_t old_fs;
-    char buf[MAXIMUM_TTY_BUFFER_LENGTH] = {0};
 
     if (tty_fd == NULL) {
         return -EINVAL;
@@ -472,8 +473,8 @@ static int _tty_clear_rxbuf(struct file *tty_fd) {
     set_fs(KERNEL_DS);
     do {
         _tty_wait(tty_fd, 0);
-        rc = tty_fd->f_op->read(tty_fd, buf, sizeof(buf), 0);
-        memset(buf, 0, sizeof(buf));
+        rc = tty_fd->f_op->read(tty_fd, buf, max_size, 0);
+        memset(buf, 0, max_size);
     } while (rc > 0);
 
     set_fs(old_fs);
@@ -481,7 +482,7 @@ static int _tty_clear_rxbuf(struct file *tty_fd) {
 }
 
 static int _tty_writeNread(struct file *tty_fd,
-                           char *wr_p, char *rd_p, int max_len, u32 mdelay)
+                           char *wr_p, char *rd_p, int rx_max_len, u32 mdelay)
 {
     int     rc;
     mm_segment_t old_fs;
@@ -495,6 +496,7 @@ static int _tty_writeNread(struct file *tty_fd,
         return -EINVAL;
     }
 
+    memset(rd_p, 0, rx_max_len);
     old_fs = get_fs();
     set_fs(KERNEL_DS);
     rc = _tty_tx(tty_fd, wr_p);
@@ -503,7 +505,7 @@ static int _tty_writeNread(struct file *tty_fd,
         goto exit;
     }
     _tty_wait(tty_fd, mdelay);
-    rc = _tty_rx(tty_fd, rd_p, max_len);
+    rc = _tty_rx(tty_fd, rd_p, rx_max_len);
     if (rc < 0) {
         printk( "failed to read(%d)\n", rc);
         goto exit;
@@ -528,16 +530,15 @@ static bool _is_logged_in(char *buf)
     }
 }
 
-static int _tty_login(struct file *tty_fd)
+static int _tty_login(struct file *tty_fd, char* buf, size_t max_size)
 {
     int i, ret;
-    char buf[MAXIMUM_TTY_BUFFER_LENGTH] = {0};
 
     if(!tty_fd)
         return -EINVAL;
 
     for (i = 1; i <= TTY_LOGIN_RETRY; i++) {
-        ret = _tty_writeNread(tty_fd, "\r\r", buf, sizeof(buf), 0);
+        ret = _tty_writeNread(tty_fd, "\r\r", buf, max_size, 0);
         if (ret < 0) {
             DEBUG_INTR("%s-%d, failed ret:%d\n", __func__, __LINE__, ret);
             continue;
@@ -550,7 +551,7 @@ static int _tty_login(struct file *tty_fd)
                 (strstr(buf, "login:") != NULL))
         {
             ret = _tty_writeNread(tty_fd, TTY_USER"\r",
-                                  buf, sizeof(buf), TTY_LOGIN_RETRY_INTV);
+                                  buf, max_size, TTY_LOGIN_RETRY_INTV);
             if (ret < 0) {
                 DEBUG_INTR("%s-%d, failed ret:%d\n", __func__, __LINE__, ret);
                 continue;
@@ -558,7 +559,7 @@ static int _tty_login(struct file *tty_fd)
             DEBUG_INTR("%s-%d, tty_buf:%s\n", __func__, __LINE__, buf);
             if (strstr(buf, "Password:") != NULL) {
                 DEBUG_INTR("%s-%d, tty_buf:%s\n", __func__, __LINE__, buf);
-                ret = _tty_writeNread(tty_fd, TTY_PASSWORD"\r", buf, sizeof(buf), 0);
+                ret = _tty_writeNread(tty_fd, TTY_PASSWORD"\r", buf, max_size, 0);
                 if (ret < 0) {
                     DEBUG_INTR("%s-%d, failed ret:%d\n", __func__, __LINE__, ret);
                     continue;
@@ -581,7 +582,8 @@ bmc_transaction(char *cmd, char* resp, int max)
 {
     u32  i;
     struct file *tty_fd = NULL;
-    char buf[MAXIMUM_TTY_BUFFER_LENGTH] = {0};
+    char *buf;
+    int buf_size = MAXIMUM_TTY_BUFFER_LENGTH;
     int ret = 0;
 
     if(!cmd || !resp)
@@ -592,8 +594,14 @@ bmc_transaction(char *cmd, char* resp, int max)
         return -EAGAIN;
     }
 
-    _tty_clear_rxbuf(tty_fd);
-    if (_tty_login(tty_fd) != 0) {
+    buf = (char *)kmalloc(buf_size, GFP_KERNEL);
+    if (!buf) {
+        ret = -ENOMEM;
+        goto exit;
+    }
+
+    _tty_clear_rxbuf(tty_fd, buf, buf_size);
+    if (_tty_login(tty_fd, buf, buf_size) != 0) {
         dev_err(wedge_data->dev, "Failed to login TTY device\n");
         _tty_close(&tty_fd);
         ret = -ENOENT;
@@ -602,7 +610,7 @@ bmc_transaction(char *cmd, char* resp, int max)
 
     i = 0;
     do {
-        ret = _tty_writeNread(tty_fd, cmd, buf, sizeof(buf), 200);
+        ret = _tty_writeNread(tty_fd, cmd, buf, buf_size, 200);
         if (ret < 0) {
             goto exit;
         }
@@ -616,6 +624,7 @@ bmc_transaction(char *cmd, char* resp, int max)
 
     strncpy(resp, buf, max);
 exit:
+    kfree(buf);
     _tty_close(&tty_fd);
     return ret;
 }
@@ -706,19 +715,19 @@ static int extract_numbers(char *buf, int *out, int out_cnt)
     int  cnt, x;
 
     ptr = buf;
-    DEBUG_INTR("%s-%d, out_cnt (%d)\n", __func__, __LINE__,  out_cnt);
+    DEBUG_LEX("%s-%d, out_cnt (%d)\n", __func__, __LINE__,  out_cnt);
     /*replace non-digits into '|', for sscanf(%s)'s ease to handle it.*/
     for (x = 0; x < strlen(ptr); x++) {
         if( ptr[x]<'0' || ptr[x] >'9' )
             ptr[x] = TTY_RESP_SEPARATOR;
     }
 
-    DEBUG_INTR("%s-%d, (%lu) resp:%s\n", __func__, __LINE__, strlen(ptr), ptr);
+    DEBUG_LEX("%s-%d, (%lu) resp:%s\n", __func__, __LINE__, strlen(ptr), ptr);
     cnt = 0;
     while (strchr(ptr, TTY_RESP_SEPARATOR))
     {
         if (sscanf(ptr,"%d%s",out,ptr)) {
-            DEBUG_INTR("%s-%d,  %d @(%d)\n", __func__, __LINE__,  *(out), cnt);
+            DEBUG_LEX("%s-%d,  %d @(%d)\n", __func__, __LINE__,  *(out), cnt);
             cnt++;
             out++;
             if (cnt == out_cnt) {
@@ -748,7 +757,7 @@ static int extract_2byteHex(char *buf, int *out, int out_cnt)
             ptr[x] = TTY_RESP_SEPARATOR;
     }
 
-    DEBUG_INTR("%s-%d, (%lu) resp:%s\n", __func__, __LINE__, strlen(ptr), ptr);
+    DEBUG_LEX("%s-%d, (%lu) resp:%s\n", __func__, __LINE__, strlen(ptr), ptr);
     cnt = 0;
     while (strchr(ptr, TTY_RESP_SEPARATOR))
     {
@@ -756,10 +765,10 @@ static int extract_2byteHex(char *buf, int *out, int out_cnt)
         if (strlen(ptr) && *ptr == TTY_RESP_SEPARATOR) {
             continue;
         }
-        DEBUG_INTR("%s-%d, (%lu) :%s\n", __func__, __LINE__, strlen(ptr), ptr);
+        DEBUG_LEX("%s-%d, (%lu) :%s\n", __func__, __LINE__, strlen(ptr), ptr);
         if (sscanf(ptr,"%4s",tmp)) {
             if(!strchr(tmp, TTY_RESP_SEPARATOR)) {
-                DEBUG_INTR("%s-%d,  %s @(%d)\n", __func__, __LINE__,  tmp, cnt);
+                DEBUG_LEX("%s-%d,  %s @(%d)\n", __func__, __LINE__,  tmp, cnt);
                 if (kstrtol(tmp, 16, &y) < 0)
                     return -EINVAL;
                 *out = (int)y;
