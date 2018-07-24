@@ -20,6 +20,7 @@
 #    mm/dd/yyyy (A.D.)
 #    11/13/2017: Polly Hsu, Create
 #    1/10/2018: Jostar modify for as7716_32
+#    6/22/2018: Jostar modify for as7726_32
 # ------------------------------------------------------------------
 
 try:
@@ -42,15 +43,11 @@ class FanUtil(object):
     FAN_NUM_6_IDX = 6
 
     FAN_NODE_NUM_OF_MAP = 2
-    FAN_NODE_FAULT_IDX_OF_MAP = 1
-    #FAN_NODE_SPEED_IDX_OF_MAP = 2
+    FAN_NODE_FAULT_IDX_OF_MAP = 1    
     FAN_NODE_DIR_IDX_OF_MAP = 2
-    #FAN_NODE_DUTY_IDX_OF_MAP = 4
-    #FANR_NODE_FAULT_IDX_OF_MAP = 5
 
-    #BASE_VAL_PATH = '/sys/devices/platform/as5712_54x_fan/{0}'
-    BASE_VAL_PATH = '/sys/bus/i2c/devices/9-0066/{0}'
-    FAN_DUTY_PATH = '/sys/bus/i2c/devices/9-0066/fan_duty_cycle_percentage'
+    BASE_VAL_PATH = '/sys/bus/i2c/devices/54-0066/{0}'
+    FAN_DUTY_PATH = '/sys/bus/i2c/devices/54-0066/fan_duty_cycle_percentage'
 
     #logfile = ''
     #loglevel = logging.INFO

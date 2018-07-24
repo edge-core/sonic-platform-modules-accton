@@ -20,6 +20,7 @@
 #    mm/dd/yyyy (A.D.)
 #    11/13/2017: Polly Hsu, Create
 #    1/10/2018:Jostar modify for as7716_32x
+#    6/21/2018:Jostar modify for as7726_32x
 # ------------------------------------------------------------------
 
 try:
@@ -34,10 +35,12 @@ except ImportError as e:
 class ThermalUtil(object):
     """Platform-specific ThermalUtil class"""
 
-    THERMAL_NUM_ON_MAIN_BROAD = 3
+    THERMAL_NUM_ON_MAIN_BROAD = 5
     THERMAL_NUM_1_IDX = 1 # 1_ON_MAIN_BROAD
     THERMAL_NUM_2_IDX = 2 # 2_ON_MAIN_BROAD
     THERMAL_NUM_3_IDX = 3 # 3_ON_MAIN_BROAD
+    THERMAL_NUM_4_IDX = 4 # 4_ON_MAIN_BROAD
+    THERMAL_NUM_5_IDX = 5 # 5_ON_MAIN_BROAD
 
     BASE_VAL_PATH = '/sys/bus/i2c/devices/{0}-00{1}/hwmon/hwmon*/temp1_input'
 
@@ -47,9 +50,11 @@ class ThermalUtil(object):
     _thermal_to_device_path_mapping = {}
 
     _thermal_to_device_node_mapping = {
-            THERMAL_NUM_1_IDX: ['10', '48'],
-            THERMAL_NUM_2_IDX: ['10', '49'],
-            THERMAL_NUM_3_IDX: ['10', '4a'],
+            THERMAL_NUM_1_IDX: ['55', '48'],
+            THERMAL_NUM_2_IDX: ['55', '49'],
+            THERMAL_NUM_3_IDX: ['55', '4a'],
+            THERMAL_NUM_4_IDX: ['55', '4b'],
+            THERMAL_NUM_5_IDX: ['54', '4c'],
            }
 
     def __init__(self):
