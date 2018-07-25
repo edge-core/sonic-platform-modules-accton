@@ -39,7 +39,7 @@ except ImportError as e:
 
 # Deafults
 VERSION = '1.0'
-FUNCTION_NAME = '/usr/local/bin/accton_as7726_monitor_psu'
+FUNCTION_NAME = '/usr/local/bin/accton_as7726_32x_monitor_psu'
 
 global log_file
 global log_level
