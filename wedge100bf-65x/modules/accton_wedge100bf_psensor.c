@@ -59,7 +59,7 @@ enum mtype {
 };
 
 #define SENSOR_DATA_UPDATE_INTERVAL     (5*HZ)
-#define MAX_THERMAL_COUNT (8)
+#define MAX_THERMAL_COUNT (7)
 #define MAX_FAN_COUNT     (10)
 #define CHASSIS_PSU_CHAR_COUNT     (2)    /*2 for input and output.*/
 #define CHASSIS_LED_COUNT     (2)
@@ -99,6 +99,8 @@ enum mtype {
 
 enum sensor_type {
     SENSOR_TYPE_THERMAL_IN = 0,
+    SENSOR_TYPE_THERMAL_MAX,
+    SENSOR_TYPE_THERMAL_MAX_HYST,
     SENSOR_TYPE_FAN_RPM,
     SENSOR_TYPE_FAN_RPM_DOWN,
     SENSOR_TYPE_PSU1,
@@ -143,6 +145,8 @@ struct pmbus_reg {
 
 struct sensor_data {
     int lm75_input[MAX_THERMAL_COUNT];
+    int lm75_max[MAX_THERMAL_COUNT];
+    int lm75_max_hyst[MAX_THERMAL_COUNT];
     int fan_rpm[MAX_FAN_COUNT];
     int fan_rpm_dn[MAX_FAN_COUNT];
     int psu1_data [PSU_DATA_MAX];
@@ -154,6 +158,8 @@ enum sysfs_attributes_index {
     INDEX_VERSION,
     INDEX_NAME,
     INDEX_THRM_IN_START = 100,
+    INDEX_THRM_MAX_START = 150,
+    INDEX_THRM_MAX_HYST_START = 170,
     INDEX_FAN_RPM_START = 200,
     INDEX_FAN_RPM_START_DN  = 300,
     INDEX_PSU1_START    = 400,
@@ -189,6 +195,10 @@ static ssize_t show_name(struct device *dev, struct device_attribute *da,
                          char *buf);
 static ssize_t show_thermal(struct device *dev, struct device_attribute *da,
                             char *buf);
+static ssize_t show_thermal_max(struct device *dev, struct device_attribute *da,
+                                char *buf);
+static ssize_t show_thermal_max_hyst(struct device *dev, struct device_attribute *da,
+                                     char *buf);
 static ssize_t show_fan(struct device *dev, struct device_attribute *da,
                         char *buf);
 static ssize_t show_fan_dn(struct device *dev, struct device_attribute *da,
@@ -226,6 +236,22 @@ struct sensor_set ss_w100_65x[SENSOR_TYPE_MAX] =
         1,
         {   [0] = {BF100_65X_THERMAL_COUNT, 0, "temp","_input",
                 S_IRUGO, show_thermal, NULL
+            },
+        }
+    },
+    [SENSOR_TYPE_THERMAL_MAX] = {
+        BF100_65X_THERMAL_COUNT, INDEX_THRM_MAX_START,
+        1,
+        {   [0] = {BF100_65X_THERMAL_COUNT, 0, "temp","_max",
+                S_IRUGO, show_thermal_max, NULL
+            },
+        }
+    },
+    [SENSOR_TYPE_THERMAL_MAX_HYST] = {
+        BF100_65X_THERMAL_COUNT, INDEX_THRM_MAX_HYST_START,
+        1,
+        {   [0] = {BF100_65X_THERMAL_COUNT, 0, "temp","_max_hyst",
+                S_IRUGO, show_thermal_max_hyst, NULL
             },
         }
     },
@@ -289,6 +315,22 @@ struct sensor_set ss_w100_32x[SENSOR_TYPE_MAX] =
             },
         }
     },
+    [SENSOR_TYPE_THERMAL_MAX] = {
+        BF100_65X_THERMAL_COUNT, INDEX_THRM_MAX_START,
+        1,
+        {   [0] = {BF100_65X_THERMAL_COUNT, 0, "temp","_max",
+                S_IRUGO, show_thermal_max, NULL
+            },
+        }
+    },
+    [SENSOR_TYPE_THERMAL_MAX_HYST] = {
+        BF100_65X_THERMAL_COUNT, INDEX_THRM_MAX_HYST_START,
+        1,
+        {   [0] = {BF100_65X_THERMAL_COUNT, 0, "temp","_max_hyst",
+                S_IRUGO, show_thermal_max_hyst, NULL
+            },
+        }
+    },
     [SENSOR_TYPE_FAN_RPM] = {
         BF100_32X_FAN_COUNT, INDEX_FAN_RPM_START,
         1,
@@ -335,13 +377,15 @@ struct sensor_set ss_w100_32x[SENSOR_TYPE_MAX] =
 struct sensor_set *model_ssets[SENSOR_TYPE_MAX] = {ss_w100_65x, ss_w100_32x};
 
 static char tty_cmd[SENSOR_TYPE_MAX][TTY_CMD_MAX_LEN] = {
-    "cat /sys/class/hwmon/hwmon*/temp1_input\r\n",
+    "cat /sys/bus/i2c/devices/[38]-004*/temp1_input\r\n",
+    "cat /sys/bus/i2c/devices/[38]-004*/temp1_max\r\n",
+    "cat /sys/bus/i2c/devices/[38]-004*/temp1_max_hyst\r\n",
     "cat /sys/bus/i2c/devices/8-0033/fan*_input\r\n",
     "cat /sys/bus/i2c/devices/9-0033/fan*_input\r\n",
-    "i2cset -y 7 0x70 0 2; i2cdump -y -r "\
+    "i2cset -y -f 7 0x70 0 2; i2cdump -y -f -r "\
     __stringify(PMBUS_REG_START)"-" __stringify(PMBUS_REG_END)\
     " 7 0x59 w\r\n",
-    "i2cset -y 7 0x70 0 1; i2cdump -y -r "\
+    "i2cset -y -f 7 0x70 0 1; i2cdump -y -f -r "\
     __stringify(PMBUS_REG_START)"-" __stringify(PMBUS_REG_END)\
     " 7 0x5a w\r\n",
 };
@@ -787,7 +831,6 @@ static int extract_2byteHex(char *buf, int *out, int out_cnt)
     return  -EINVAL;
 }
 
-
 int pmbus_linear11(int in, bool power) {
     int exponent;
     int mantissa, val;
@@ -855,6 +898,8 @@ static int comm2BMC(enum sensor_type type, int *out, int out_cnt)
 
     switch (type) {
     case SENSOR_TYPE_THERMAL_IN:
+    case SENSOR_TYPE_THERMAL_MAX:
+    case SENSOR_TYPE_THERMAL_MAX_HYST:
     case SENSOR_TYPE_FAN_RPM:
     case SENSOR_TYPE_FAN_RPM_DOWN:
         ret = extract_numbers(ptr, out, out_cnt);
@@ -885,6 +930,12 @@ static int get_type_data (
     switch (type) {
     case SENSOR_TYPE_THERMAL_IN:
         *out = &data->lm75_input[index];
+        break;
+    case SENSOR_TYPE_THERMAL_MAX:
+        *out = &data->lm75_max[index];
+        break;
+    case SENSOR_TYPE_THERMAL_MAX_HYST:
+        *out = &data->lm75_max_hyst[index];
         break;
     case SENSOR_TYPE_FAN_RPM:
         *out = &data->fan_rpm[index];
@@ -955,7 +1006,6 @@ static ssize_t _attr_show(struct device *dev, struct device_attribute *da,
     int *out = NULL;
 
     DEBUG_INTR("%s-%d, type:%d start:%d\n", __func__, __LINE__, type, index_start);
-
     data = update_data(dev, type);
     if (data == NULL)
         return -EINVAL;
@@ -977,7 +1027,18 @@ static ssize_t show_thermal(struct device *dev, struct device_attribute *da,
     return _attr_show(dev, da, buf,
                       SENSOR_TYPE_THERMAL_IN, INDEX_THRM_IN_START);
 }
-
+static ssize_t show_thermal_max(struct device *dev, struct device_attribute *da,
+                                char *buf)
+{
+    return _attr_show(dev, da, buf,
+                      SENSOR_TYPE_THERMAL_MAX, INDEX_THRM_MAX_START);
+}
+static ssize_t show_thermal_max_hyst(struct device *dev,
+                                     struct device_attribute *da,  char *buf)
+{
+    return _attr_show(dev, da, buf,
+                      SENSOR_TYPE_THERMAL_MAX_HYST, INDEX_THRM_MAX_HYST_START);
+}
 static ssize_t show_fan(struct device *dev, struct device_attribute *da,
                         char *buf)
 {
