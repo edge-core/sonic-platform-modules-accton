@@ -257,15 +257,11 @@ def driver_uninstall():
     global FORCE
     for i in range(0,len(kos)):
         rm = kos[-(i+1)].replace("modprobe", "modprobe -rq")
-        print "1:rm=%s"%rm
-        #rm = rm.replace("insmod", "rmmod")
-        #print "2:rm=%s"%rm
         lst = rm.split(" ")
         print "lst=%s"%lst
         if len(lst) > 3:
             del(lst[3])
         rm = " ".join(lst)
-        print "3:rm=%s"%rm
         status, output = log_os_system(rm, 1)
         if status:
             if FORCE == 0:
