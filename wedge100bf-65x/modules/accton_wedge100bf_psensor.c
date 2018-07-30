@@ -63,6 +63,8 @@ enum mtype {
 #define MAX_FAN_COUNT     (10)
 #define CHASSIS_PSU_CHAR_COUNT     (2)    /*2 for input and output.*/
 #define CHASSIS_LED_COUNT     (2)
+#define CHASSIS_PSU_VOUT_COUNT     (1)    /*V output only.*/
+#define CHASSIS_PSU_VOUT_INDEX     (1)    /*V output start index.*/
 
 #define BF100_65X_THERMAL_COUNT  MAX_THERMAL_COUNT
 #define BF100_65X_FAN_COUNT      MAX_FAN_COUNT
@@ -95,7 +97,10 @@ enum mtype {
 #define TTY_READ_MAX_LEN        (256)
 
 #define TTY_RESP_SEPARATOR      '|'     /*For the ease to debug*/
-#define MAX_ATTR_PATTERN        (3)
+#define MAX_ATTR_PATTERN        (8)
+#define MIN_FAN_RPM             (0)
+#define MAX_PSU_VOUT            (12000*1005/1000) /*12 + 0.5%*/
+#define MIN_PSU_VOUT            (12000*995/1000)    /*12 - 0.5%*/
 
 enum sensor_type {
     SENSOR_TYPE_THERMAL_IN = 0,
@@ -203,10 +208,16 @@ static ssize_t show_fan(struct device *dev, struct device_attribute *da,
                         char *buf);
 static ssize_t show_fan_dn(struct device *dev, struct device_attribute *da,
                            char *buf);
+static ssize_t show_fan_min(struct device *dev, struct device_attribute *da,
+                            char *buf);
 static ssize_t show_psu1(struct device *dev, struct device_attribute *da,
                          char *buf);
 static ssize_t show_psu2(struct device *dev, struct device_attribute *da,
                          char *buf);
+static ssize_t show_psu_vout_min(struct device *dev, struct device_attribute *da,
+                                 char *buf);
+static ssize_t show_psu_vout_max(struct device *dev, struct device_attribute *da,
+                                 char *buf);
 static int add_attr2group(struct wedge100_data *data, struct attribute *attr);
 
 
@@ -257,23 +268,31 @@ struct sensor_set ss_w100_65x[SENSOR_TYPE_MAX] =
     },
     [SENSOR_TYPE_FAN_RPM] = {
         BF100_65X_FAN_COUNT, INDEX_FAN_RPM_START,
-        1,
+        2,
         {   [0] = {BF100_65X_FAN_COUNT, 0, "fan","_input",
                 S_IRUGO, show_fan, NULL
+            },
+            [1] = {
+                BF100_65X_FAN_COUNT, 0, "fan","_min",
+                S_IRUGO, show_fan_min, NULL
             },
         }
     },
     [SENSOR_TYPE_FAN_RPM_DOWN] = {
         BF100_65X_FAN_COUNT, INDEX_FAN_RPM_START_DN,
-        1,
+        2,
         {   [0] = {BF100_65X_FAN_COUNT, MAX_FAN_COUNT, "fan","_input",
                 S_IRUGO, show_fan_dn, NULL
+            },
+            [1] = {
+                BF100_65X_FAN_COUNT, MAX_FAN_COUNT, "fan","_min",
+                S_IRUGO, show_fan_min, NULL
             },
         }
     },
     [SENSOR_TYPE_PSU1] = {
         PSU_DATA_MAX, INDEX_PSU1_START,
-        3,
+        5,
         {   [0] ={CHASSIS_PSU_CHAR_COUNT, 0, "in","_input",
                 S_IRUGO, show_psu1, NULL
             },
@@ -285,11 +304,19 @@ struct sensor_set ss_w100_65x[SENSOR_TYPE_MAX] =
                 CHASSIS_PSU_CHAR_COUNT, 0, "power","_input",
                 S_IRUGO, show_psu1, NULL
             },
+            [3] ={
+                CHASSIS_PSU_VOUT_COUNT, CHASSIS_PSU_VOUT_INDEX, "in","_max",
+                S_IRUGO, show_psu_vout_max, NULL
+            },
+            [4] ={
+                CHASSIS_PSU_VOUT_COUNT, CHASSIS_PSU_VOUT_INDEX, "in","_min",
+                S_IRUGO, show_psu_vout_min, NULL
+            },
         }
     },
     [SENSOR_TYPE_PSU2] = {
         PSU_DATA_MAX, INDEX_PSU2_START,
-        3,
+        5,
         {   [0] ={CHASSIS_PSU_CHAR_COUNT, CHASSIS_PSU_CHAR_COUNT, "in","_input",
                 S_IRUGO, show_psu2, NULL
             },
@@ -300,6 +327,16 @@ struct sensor_set ss_w100_65x[SENSOR_TYPE_MAX] =
             [2] ={
                 CHASSIS_PSU_CHAR_COUNT, CHASSIS_PSU_CHAR_COUNT, "power","_input",
                 S_IRUGO, show_psu2, NULL
+            },
+            [3] ={
+                CHASSIS_PSU_VOUT_COUNT,
+                CHASSIS_PSU_CHAR_COUNT+CHASSIS_PSU_VOUT_INDEX, "in","_max",
+                S_IRUGO, show_psu_vout_max, NULL
+            },
+            [4] ={
+                CHASSIS_PSU_VOUT_COUNT,
+                CHASSIS_PSU_CHAR_COUNT+CHASSIS_PSU_VOUT_INDEX, "in","_min",
+                S_IRUGO, show_psu_vout_min, NULL
             },
         }
     },
@@ -380,8 +417,8 @@ static char tty_cmd[SENSOR_TYPE_MAX][TTY_CMD_MAX_LEN] = {
     "cat /sys/bus/i2c/devices/[38]-004*/temp1_input\r\n",
     "cat /sys/bus/i2c/devices/[38]-004*/temp1_max\r\n",
     "cat /sys/bus/i2c/devices/[38]-004*/temp1_max_hyst\r\n",
-    "cat /sys/bus/i2c/devices/8-0033/fan*_input\r\n",
-    "cat /sys/bus/i2c/devices/9-0033/fan*_input\r\n",
+    "ls -v /sys/bus/i2c/devices/8-0033/fan*_input | xargs cat\r\n",
+    "ls -v /sys/bus/i2c/devices/9-0033/fan*_input | xargs cat\r\n",
     "i2cset -y -f 7 0x70 0 2; i2cdump -y -f -r "\
     __stringify(PMBUS_REG_START)"-" __stringify(PMBUS_REG_END)\
     " 7 0x59 w\r\n",
@@ -1046,6 +1083,12 @@ static ssize_t show_fan(struct device *dev, struct device_attribute *da,
                       SENSOR_TYPE_FAN_RPM, INDEX_FAN_RPM_START);
 }
 
+static ssize_t show_fan_min(struct device *dev, struct device_attribute *da,
+                            char *buf)
+{
+    return sprintf(buf, "%d\n",  MIN_FAN_RPM);
+}
+
 static ssize_t show_fan_dn(struct device *dev, struct device_attribute *da,
                            char *buf)
 {
@@ -1065,6 +1108,18 @@ static ssize_t show_psu2(struct device *dev, struct device_attribute *da,
 {
     return _attr_show(dev, da, buf,
                       SENSOR_TYPE_PSU2, INDEX_PSU2_START);
+}
+
+static ssize_t show_psu_vout_max(struct device *dev, struct device_attribute *da,
+                                 char *buf)
+{
+    return sprintf(buf, "%d\n",  MAX_PSU_VOUT);
+}
+
+static ssize_t show_psu_vout_min(struct device *dev, struct device_attribute *da,
+                                 char *buf)
+{
+    return sprintf(buf, "%d\n",  MIN_PSU_VOUT);
 }
 
 static int add_attr2group(struct wedge100_data *data, struct attribute *attr)
