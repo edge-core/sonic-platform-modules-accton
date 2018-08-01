@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (C) 2017 Accton Technology Corporation
+# Copyright (C) 2018 Accton Technology Corporation
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,8 +18,7 @@
 # ------------------------------------------------------------------
 # HISTORY:
 #    mm/dd/yyyy (A.D.)
-#    3/23/2018: Roy Lee modify for as7326_56x
-#    6/26/2018: Jostar implement by new thermal policy from HW RD
+#    7/2/2018:  Jostar create for as7326-56x
 # ------------------------------------------------------------------
 
 try:
@@ -50,20 +49,17 @@ def log_os_system(cmd, show):
 class ThermalUtil(object):
     """Platform-specific ThermalUtil class"""
 
-    THERMAL_NUM_MAX = 6
-    THERMAL_NUM_1_IDX = 1 # 1_ON_MAIN_BROAD. LM75
-    THERMAL_NUM_2_IDX = 2 # 2_ON_MAIN_BROAD. LM75
-    THERMAL_NUM_3_IDX = 3 # 3_ON_MAIN_BROAD. LM75
-    THERMAL_NUM_4_IDX = 4 # CPU board. LM75
-    THERMAL_NUM_5_IDX = 5 # CPU core thermal
-    THERMAL_NUM_6_IDX = 6 # BCM thermal
+    PSU_NUM_MAX = 2
+    PSU_IDX_1 = 1 
+    PSU_IDX_2 = 2
     
+    PSU_1_BASE_PATH = '/sys/bus/i2c/devices/17-0051/'
+    PSU_2_BASE_PATH = '/sys/bus/i2c/devices/13-0053/'
 
     BASE_VAL_PATH = '/sys/bus/i2c/devices/{0}-00{1}/hwmon/hwmon*/temp1_input'
     CPU_thermal_PATH = "/sys/class/hwmon/hwmon0/temp1_input"
     BCM_thermal_cmd = 'bcmcmd "show temp" > /tmp/bcm_thermal'
     BCM_thermal_path = '/tmp/bcm_thermal'
-    #BCM_thermal_path = '/tmp/bcm_debug'
     """ Dictionary where
         key1 = thermal id index (integer) starting from 1
         value = path to fan device file (string) """
@@ -123,23 +119,18 @@ class ThermalUtil(object):
             search_str="average current temperature is"
             print "file_str.find=%s"%file_str.find(search_str)
             str_len = len(search_str)
-            idx=file_str.find(search_str)
-            if idx==-1:
-                print "bcm sdk is not ready ,retrun 0"
-                return 0
-            else:               
-                #print "file_str[idx]=%c"%file_str[idx+str_len+1]
-                #print "file_str[idx]=%c"%file_str[idx+str_len+2]
-                #print "file_str[idx]=%c"%file_str[idx+str_len+2+1]
-                #print "file_str[idx]=%c"%file_str[idx+str_len+2+2]
-                #print "file_str[idx]=%c"%file_str[idx+str_len+2+3]
-                #print "file_str[idx]=%c"%file_str[idx+str_len+2+4]
-                #print "file_str[idx]=%c"%file_str[idx+str_len+2+5]
-                #print "file_str[idx]=%c"%file_str[idx+str_len+2+6]
-                temp_str=file_str[idx+str_len+1] + file_str[idx+str_len+2] + file_str[idx+str_len+3]+file_str[idx+str_len+4] +file_str[idx+str_len+5]
-                print "bcm temp_str=%s"%temp_str
-                check_file.close()                 
-                return float(temp_str)*1000
+            idx=file_str.find(search_str)           
+            #print "file_str[idx]=%c"%file_str[idx+str_len+2]
+            #print "file_str[idx]=%c"%file_str[idx+str_len+2+1]
+            #print "file_str[idx]=%c"%file_str[idx+str_len+2+2]
+            #print "file_str[idx]=%c"%file_str[idx+str_len+2+3]
+            #print "file_str[idx]=%c"%file_str[idx+str_len+2+4]
+            #print "file_str[idx]=%c"%file_str[idx+str_len+2+5]
+            #print "file_str[idx]=%c"%file_str[idx+str_len+2+6]
+            temp_str= file_str[idx+str_len+2] + file_str[idx+str_len+3]+file_str[idx+str_len+4] +file_str[idx+str_len+5]
+            print "temp_str=%s"%temp_str
+            check_file.close() 
+            return float(temp_str)*1000
  
     def get_num_thermals(self):
         return self.THERMAL_NUM_MAX
