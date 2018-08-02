@@ -1,5 +1,6 @@
 #!/bin/bash
 test_log=/usr/local/bin/check_mac_status.txt
+modprobe i2c-i801
 modprobe i2c-dev
 i2cset -y 0 0x77 0x1
 i2cset -y 0 0x70 0x1

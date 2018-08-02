@@ -2,7 +2,6 @@
 Description=Accton AS7326-56X Platform Drv Monitoring service
 Before=pmon.service
 After=sysinit.target
-#After=as7326-platform-monitor.service
 DefaultDependencies=no
 
 [Service]
