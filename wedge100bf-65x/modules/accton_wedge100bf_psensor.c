@@ -370,16 +370,20 @@ struct sensor_set ss_w100_32x[SENSOR_TYPE_MAX] =
     },
     [SENSOR_TYPE_FAN_RPM] = {
         BF100_32X_FAN_COUNT, INDEX_FAN_RPM_START,
-        1,
+        2,
         {   [0] = {BF100_32X_FAN_COUNT, 0, "fan","_input",
                 S_IRUGO, show_fan, NULL
+            },
+            [1] = {
+                BF100_65X_FAN_COUNT, 0, "fan","_min",
+                S_IRUGO, show_fan_min, NULL
             },
         }
     },
     [SENSOR_TYPE_FAN_RPM_DOWN] = {0},
     [SENSOR_TYPE_PSU1] = {
         PSU_DATA_MAX, INDEX_PSU1_START,
-        3,
+        5,
         {   [0] ={CHASSIS_PSU_CHAR_COUNT, 0, "in","_input",
                 S_IRUGO, show_psu1, NULL
             },
@@ -391,11 +395,19 @@ struct sensor_set ss_w100_32x[SENSOR_TYPE_MAX] =
                 CHASSIS_PSU_CHAR_COUNT, 0, "power","_input",
                 S_IRUGO, show_psu1, NULL
             },
+            [3] ={
+                CHASSIS_PSU_VOUT_COUNT, CHASSIS_PSU_VOUT_INDEX, "in","_max",
+                S_IRUGO, show_psu_vout_max, NULL
+            },
+            [4] ={
+                CHASSIS_PSU_VOUT_COUNT, CHASSIS_PSU_VOUT_INDEX, "in","_min",
+                S_IRUGO, show_psu_vout_min, NULL
+            },
         }
     },
     [SENSOR_TYPE_PSU2] = {
         PSU_DATA_MAX, INDEX_PSU2_START,
-        3,
+        5,
         {   [0] ={CHASSIS_PSU_CHAR_COUNT, CHASSIS_PSU_CHAR_COUNT, "in","_input",
                 S_IRUGO, show_psu2, NULL
             },
@@ -406,6 +418,16 @@ struct sensor_set ss_w100_32x[SENSOR_TYPE_MAX] =
             [2] ={
                 CHASSIS_PSU_CHAR_COUNT, CHASSIS_PSU_CHAR_COUNT, "power","_input",
                 S_IRUGO, show_psu2, NULL
+            },
+            [3] ={
+                CHASSIS_PSU_VOUT_COUNT,
+                CHASSIS_PSU_CHAR_COUNT+CHASSIS_PSU_VOUT_INDEX, "in","_max",
+                S_IRUGO, show_psu_vout_max, NULL
+            },
+            [4] ={
+                CHASSIS_PSU_VOUT_COUNT,
+                CHASSIS_PSU_CHAR_COUNT+CHASSIS_PSU_VOUT_INDEX, "in","_min",
+                S_IRUGO, show_psu_vout_min, NULL
             },
         }
     },
@@ -535,9 +557,9 @@ static int _tty_rx(struct file *tty_fd, char *buf, int max_len)
         }
     } while (rc < 0 && timeout < TTY_RX_RETRY);
 
-    if (timeout == TTY_RX_RETRY)
+    if (timeout == TTY_RX_RETRY) {
         rc = -EAGAIN;
-
+    }
     DEBUG_INTR("[RX]%s-%d, %d BYTES, read:\n\"%s\"\n", __func__, __LINE__,rc, buf);
     return rc;
 }
@@ -619,7 +641,7 @@ static int _tty_login(struct file *tty_fd, char* buf, size_t max_size)
         return -EINVAL;
 
     for (i = 1; i <= TTY_LOGIN_RETRY; i++) {
-        ret = _tty_writeNread(tty_fd, "\r\r", buf, max_size, 0);
+        ret = _tty_writeNread(tty_fd, "\r\r", buf, max_size, TTY_RETRY_INTERVAL);
         if (ret < 0) {
             DEBUG_INTR("%s-%d, failed ret:%d\n", __func__, __LINE__, ret);
             continue;
@@ -799,7 +821,7 @@ static int extract_numbers(char *buf, int *out, int out_cnt)
     DEBUG_LEX("%s-%d, out_cnt (%d)\n", __func__, __LINE__,  out_cnt);
     /*replace non-digits into '|', for sscanf(%s)'s ease to handle it.*/
     for (x = 0; x < strlen(ptr); x++) {
-        if( ptr[x]<'0' || ptr[x] >'9' )
+        if( (ptr[x]<'0' || ptr[x] >'9') && ptr[x] != '-')
             ptr[x] = TTY_RESP_SEPARATOR;
     }
 
