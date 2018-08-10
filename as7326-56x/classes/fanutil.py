@@ -18,9 +18,9 @@
 # ------------------------------------------------------------------
 # HISTORY:
 #    mm/dd/yyyy (A.D.)
-#    11/13/2017: Polly Hsu, Create
-#    1/10/2018: Jostar modify for as7716_32
-#    3/32/2018: Roy Lee modify for as7326_56x
+#    3/23/2018: Roy Lee modify for as7326_56x
+#    6/26/2018: Jostar implement by new thermal policy from HW RD
+# ------------------------------------------------------------------
 # ------------------------------------------------------------------
 
 try:
@@ -214,8 +214,7 @@ class FanUtil(object):
             fan_file = open(self.FAN_DUTY_PATH, 'r+')
         except IOError as e:
             print "Error: unable to open file: %s" % str(e)          
-            return False
-        #val = ((val + 1 ) * 625 +75 ) / 100
+            return False       
         fan_file.write(str(val))
         fan_file.close()
         return True
@@ -232,7 +231,7 @@ class FanUtil(object):
             return None
 
         if self.get_fan_fault(fan_num) is not None and self.get_fan_fault(fan_num) > 0:
-            logging.debug('GET. FAN fault. fan_num, %d', fan_num)
+            #logging.debug('GET. FAN fault. fan_num, %d', fan_num)
             return False
 
         #if self.get_fanr_fault(fan_num) is not None and self.get_fanr_fault(fan_num) > 0:

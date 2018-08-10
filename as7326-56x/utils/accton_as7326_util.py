@@ -315,7 +315,7 @@ def driver_install():
     
     #reset MAC and IDT 82V89307
     status, output = log_os_system('modprobe i2c_dev', 1)
-    status = cpld_reset_mac()
+    #status = cpld_reset_mac()
 
     status, output = log_os_system("depmod", 1)
     for i in range(0,len(kos)):
