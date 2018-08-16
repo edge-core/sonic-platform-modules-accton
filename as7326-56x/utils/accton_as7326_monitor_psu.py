@@ -157,7 +157,7 @@ class device_monitor(object):
                         psu_power_status[idx]=PSU_STATUS_NO_POWER
             else:
                 if psu_power_status[idx] !=PSU_STATUS_POWER_GOOD:
-                logging.info("PSU-%d power_good is detected", idx+1);
+                    logging.info("PSU-%d power_good is detected", idx+1);
                     psu_power_status[idx]=PSU_STATUS_POWER_GOOD
                     
       
