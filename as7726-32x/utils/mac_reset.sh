@@ -7,6 +7,47 @@ i2cget -y 0 0x54 0 b > /dev/null
 if [ $? -ne 0 ];then
     printf "Device 8v89307(0x54) not found\n"
     i2cdetect -y 0
+     echo "Reset both MAC and PCI (write 0x6F)"
+    i2cset -y 0 0x60 0x8 0x6f
+
+    echo "Sleep 1s"
+    sleep 1
+    
+    echo "Pull back MAC reset, keep PCIE reset (write 0xEF)"
+    i2cset -y 0 0x60 0x7 0xef
+
+    echo "Sleep 1s"
+    sleep 1
+
+    echo "Set to default normal state (write 0xFF)"
+    i2cset -y 0 0x60 0x8 0xff
+    
+ 
+    echo "remove PCI device"
+    echo 1 > /sys/bus/pci/devices/0000:07:00.0/remove
+    ls /sys/bus/pci/devices/
+    echo "rescan PCI device"
+    echo 1 > /sys/bus/pci/rescan
+    ls /sys/bus/pci/devices/
+    echo "Sleep 1s"
+    sleep 1
+    lspci -n|grep 07:00.0
+    if [ $? -ne 0 ];then
+        echo "Broadcom Corporation Device is not detect">>$test_log
+        echo "rescan PCI again" >>$test_log
+        echo 1 > /sys/bus/pci/rescan
+        sleep 1
+        lspci -n|grep 07:00.0
+        if [ $? -ne 0 ];then
+            echo "Broadcom Corporation Device NG">>$test_log
+            echo "rescan PCI again-2" >>$test_log    
+            echo 1 > /sys/bus/pci/rescan
+            sleep 1
+        else
+            echo "done mac_pci_reset_rescan"
+        fi
+    fi
+
     exit 1
 fi
 echo "idt init 1"
