@@ -23,6 +23,7 @@
 # ------------------------------------------------------------------
 
 try:
+    import os
     import time
     import logging
     import glob
@@ -58,16 +59,13 @@ class ThermalUtil(object):
     THERMAL_NUM_5_IDX = 5 # CPU core thermal
     THERMAL_NUM_6_IDX = 6 # BCM thermal
     
-
-    BASE_VAL_PATH = '/sys/bus/i2c/devices/{0}-00{1}/hwmon/hwmon*/temp1_input'
-    CPU_thermal_PATH = "/sys/class/hwmon/hwmon0/temp1_input"
     BCM_thermal_cmd = 'bcmcmd "show temp" > /tmp/bcm_thermal'
     BCM_thermal_path = '/tmp/bcm_thermal'
     #BCM_thermal_path = '/tmp/bcm_debug'
     """ Dictionary where
         key1 = thermal id index (integer) starting from 1
         value = path to fan device file (string) """
-    _thermal_to_device_path_mapping = {}
+    #_thermal_to_device_path_mapping = {}
 
     _thermal_to_device_node_mapping = {
             THERMAL_NUM_1_IDX: ['15', '48'],
@@ -75,41 +73,45 @@ class ThermalUtil(object):
             THERMAL_NUM_3_IDX: ['15', '4a'],
             THERMAL_NUM_4_IDX: ['15', '4b'],
            }
+    thermal_sysfspath ={
+    THERMAL_NUM_1_IDX: ["/sys/bus/i2c/drivers/lm75/15-0048/hwmon/hwmon2/temp1_input"],
+    THERMAL_NUM_2_IDX: ["/sys/bus/i2c/drivers/lm75/15-0049/hwmon/hwmon3/temp1_input"],  
+    THERMAL_NUM_3_IDX: ["/sys/bus/i2c/drivers/lm75/15-004a/hwmon/hwmon4/temp1_input"],
+    THERMAL_NUM_4_IDX: ["/sys/bus/i2c/drivers/lm75/15-004b/hwmon/hwmon5/temp1_input"],        
+    THERMAL_NUM_5_IDX: ["/sys/class/hwmon/hwmon0/temp1_input"],     
+    }
 
-    def __init__(self):
-        thermal_path = self.BASE_VAL_PATH
-
-        for x in range(self.THERMAL_NUM_1_IDX, self.THERMAL_NUM_4_IDX+1):
-            self._thermal_to_device_path_mapping[x] = thermal_path.format(
-                self._thermal_to_device_node_mapping[x][0],
-                self._thermal_to_device_node_mapping[x][1])
-            #print "x=%d"%x
-            #print "_thermal_to_device_path_mapping=%s"%self._thermal_to_device_path_mapping[x]
-        self._thermal_to_device_path_mapping[self.THERMAL_NUM_5_IDX] =  self.CPU_thermal_PATH
-        #print "_thermal_to_device_path_mapping=%s"%self._thermal_to_device_path_mapping[self.THERMAL_NUM_5_IDX]
-            
+    #def __init__(self):
+       
     def _get_thermal_val(self, thermal_num):
         if thermal_num < self.THERMAL_NUM_1_IDX or thermal_num > self.THERMAL_NUM_MAX:
             logging.debug('GET. Parameter error. thermal_num, %d', thermal_num)
             return None
+       
         if thermal_num < self.THERMAL_NUM_6_IDX:
             device_path = self.get_thermal_to_device_path(thermal_num)
-            for filename in glob.glob(device_path):
-                try:
-                    val_file = open(filename, 'r')
-                except IOError as e:
-                    logging.error('GET. unable to open file: %s', str(e))
+            if(os.path.isfile(device_path)):                
+                for filename in glob.glob(device_path):
+                    try:
+                        val_file = open(filename, 'r')
+                    except IOError as e:
+                        logging.error('GET. unable to open file: %s', str(e))
+                        return None
+                content = val_file.readline().rstrip()
+                if content == '':
+                    logging.debug('GET. content is NULL. device_path:%s', device_path)
                     return None
-            content = val_file.readline().rstrip()
-            if content == '':
-                logging.debug('GET. content is NULL. device_path:%s', device_path)
-                return None
-            try:
-		        val_file.close()
-            except:
-                logging.debug('GET. unable to close file. device_path:%s', device_path)
-                return None      
-            return int(content)
+                try:
+		            val_file.close()
+                except:
+                    logging.debug('GET. unable to close file. device_path:%s', device_path)
+                    return None      
+                return int(content)
+            
+            else:
+                print "No such device_path=%s"%device_path
+                return 0
+            
         else:
             log_os_system(self.BCM_thermal_cmd,0)
             file_path = self.BCM_thermal_path
@@ -151,10 +153,10 @@ class ThermalUtil(object):
         return len(self._thermal_to_device_node_mapping)
 
     def get_size_path_map(self):
-        return len(self._thermal_to_device_path_mapping)
+        return len(self.thermal_sysfspath)
 
     def get_thermal_to_device_path(self, thermal_num):
-        return self._thermal_to_device_path_mapping[thermal_num]
+        return self.thermal_sysfspath[thermal_num][0]
 
     def get_thermal_1_val(self):      
         return self._get_thermal_node_val(self.THERMAL_NUM_1_IDX)
