@@ -407,7 +407,7 @@ static int get_temp_file_path(
                  "/sys/bus/i2c/devices/%d-%04x/hwmon/hwmon%d/temp1_input",
                  bus_nr, addr, i);
     }
-    printk("path=%s\n",path);
+    
     return 0;
 }
 
@@ -657,17 +657,14 @@ static struct as7726_32x_fan_data *as7726_32x_fan_update_device(struct device *d
          */
         for (i = 0; i < ARRAY_SIZE(data->reg_val); i++) {
             int status = as7726_32x_fan_read_value(client, fan_reg[i]);
-//            printk("i=%d\n",i);
             if (status < 0) {
                 data->valid = 0;
                 mutex_unlock(&data->update_lock);
                 dev_dbg(&client->dev, "reg %d, err %d\n", fan_reg[i], status);
-//                printk("reg %d, err %d\n", fan_reg[i], status);
                 return data;
             }
             else {
                 data->reg_val[i] = status;
-//                printk("reg %d,  value is %d\n", fan_reg[i], status);
             }
         }
 

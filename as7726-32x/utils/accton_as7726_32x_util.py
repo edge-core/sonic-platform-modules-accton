@@ -231,6 +231,16 @@ def driver_inserted():
     if len(lsmod) ==0:
         return False
 
+def cpld_reset_mac():
+    ret, lsmod = log_os_system("i2cset -y 0 0x77 0x1", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x76 0x4", 0)
+    ret, lsmod = log_os_system("i2cset -y 0 0x60 0x8 0x77", 0)
+    time.sleep(1)
+    ret, lsmod = log_os_system("i2cset -y 0 0x60 0x8 0xf7", 0)
+    return True
+
+
+
 #'modprobe cpr_4011_4mxx',
 
 kos = [
@@ -251,6 +261,8 @@ def driver_install():
         if status:
             if FORCE == 0:
                 return status
+    
+    #status=cpld_reset_mac()
     return 0
 
 def driver_uninstall():
